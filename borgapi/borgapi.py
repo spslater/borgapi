@@ -12,6 +12,7 @@ import borg.archive
 import borg.archiver
 import borg.helpers
 import borg.repository
+from dotenv import dotenv_values, load_dotenv
 
 from .options import (
     ArchiveInput,
@@ -44,6 +45,7 @@ class BorgAPI:
         self.archiver.log_json = log_json
         borg.archiver.setup_logging(level=log_level, is_serve=False, json=log_json)
         self.original_stdout = sys.stdout
+        self._previous_dotenv = []
 
     def _run(self, arg_list: List, func: Callable) -> Union[str, dict, None]:
         capture = value = None
@@ -81,6 +83,60 @@ class BorgAPI:
     ) -> List:
         optionals = self.defaults.get(command, {}) | (values or {})
         return options_class(**optionals).parse()
+
+    def set_environ(
+        self,
+        filename: str = None,
+        dictionary: dict = None,
+        **kwargs: Union[bool, str, int],
+    ) -> None:
+        """Load environment variables from file
+
+        If nothing is provided, load_dotenv's default value will be used.
+
+        :param filename: path to environment file, defaults to None
+        :type filename: str, optional
+        :param dictionary: dictionary of environment variables to load, defaults to None
+        :type dictionary: dict, optional
+        :param **kwargs: Environment variables and their values as named args
+        :type **kwargs: Union[bool, str, int]
+        """
+        variables = {}
+        if filename:
+            logging.debug("Loading environment variables from %s", filename)
+            variables = dotenv_values(filename)
+        elif dictionary or kwargs:
+            logging.debug("Loading dictionary with data: %s", variables)
+            variables = dictionary or kwargs
+        else:
+            logging.debug('Looking for ".env" file to load variables from')
+            variables = dotenv_values()
+
+        self._previous_dotenv = variables.keys()
+
+        config = StringIO()
+        for key, value in variables.items():
+            config.write(f"{key}={value}\n")
+        load_dotenv(stream=config)
+
+    def unset_environ(
+        self,
+        *variable: Optional[str],
+    ) -> None:
+        """Remove variables from the environment
+
+        If no variable is provided the values set from the previous call to `set_environ`
+            will be removed.
+
+        :param *variable: variable names to remove
+        :type *variable: Optional[str]
+        """
+        variables = (
+            [k for k in variable if k in os.environ] or
+            [k for k in self._previous_dotenv if k in os.environ]
+        )
+        for var in variables:
+            del os.environ[var]
 
     def init(
         self,
