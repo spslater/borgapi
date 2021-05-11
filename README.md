@@ -8,7 +8,7 @@ pip install borgapi
 ```
 
 Requires:
-* borgbackup: 1.1.16
+* `borgbackup`: 1.1.16
 
 ## Usage
 ```python
@@ -130,6 +130,10 @@ Things that were changed from the way the default borg commands work to make thi
 * Add ability to set environment variables from api (either a function or part of the initalizer or both)
   * https://borgbackup.readthedocs.io/en/stable/usage/general.html#environment-variables
   * Currently requires user to set them beforehand
+
+## Links
+* [PyPi Project](https://pypi.org/project/borgapi)
+* [Github](https://github.com/spslater/borgapi)
 
 ## Contributing
 Help is greatly appreciated. First check if there are any issues open that relate to what you want to help with. 
