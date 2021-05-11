@@ -2,6 +2,9 @@
 
 A helpful wrapper for `borgbackup` to be able to easily use it in python scripts.
 
+**This is not supported use case by the `borg` developers. They only intend for it's use via a CLI.**
+Keeping parity with `borg` is the main goal of this api.
+
 ## Installation
 ```
 pip install borgapi
@@ -9,6 +12,7 @@ pip install borgapi
 
 Requires:
 * `borgbackup`: 1.1.16
+* `python-dotenv`: 0.17.1
 
 ## Usage
 ```python
@@ -177,8 +181,14 @@ more manageable.
 
 * __init__
   * `encryption` is an optional argument that defaults to `repokey`
+* __config__
+  * `borg config` can only change one key at a time
+  * `changes` is a list of `(NAME, VALUE)` tuples so multiple changes can be made at once
+    to the same repository
 
 ## Roadmap
+- Make compatible with same version of Python that Borg uses (currently 3.5)
+- Start work on Borg's beta branch chagnes and keeping up with those
 
 ## Links
 * [PyPi Project](https://pypi.org/project/borgapi)

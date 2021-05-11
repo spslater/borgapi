@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1-alpha.1] - 2021-05-15
+### Added
+- Added missing options to the following commands:
+  - prune: `keep_last`
+  - mount: `o`
+- Added missing options to the following `Options` dataclasses:
+  - CommonOptions: `debug_topic`
+
+### Changed
+- Added `python-dotenv` to the Installation section in the README
+- Add warning at top of README file saying how this is not how the borg developers intended use.
+- Add roadmap items to the README
+- Add `config` to the "Command Quirks" section of readme
+
 ## [0.2.0] - 2021-05-10
 ### Added
 - Loading environment variables using
