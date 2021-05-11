@@ -1,0 +1,4 @@
+pp:venv
+pp:__pycache__
+re:.*\~
+re:.*\.swp

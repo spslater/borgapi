@@ -1,0 +1,30 @@
+[loggers]
+keys=root
+
+[handlers]
+keys=logfile,stdout
+
+[formatters]
+keys=logfile
+
+[logger_root]
+level=INFO
+handlers=logfile,stdout
+
+[handler_logfile]
+class=FileHandler
+level=INFO
+formatter=logfile
+args=('borg.log', 'a+')
+
+[handler_stdout]
+class=StreamHandler
+level=INFO
+formatter=logfile
+args=(sys.stdout,)
+
+[formatter_logfile]
+format=%(asctime)s	[%(levelname)s]	%(message)s
+datefmt=%Y-%m-%d %H:%M:%S
+class=logging.Formatter
+
