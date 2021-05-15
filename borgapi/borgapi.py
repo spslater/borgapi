@@ -495,6 +495,7 @@ class BorgAPI:
             stats: bool = False
             list: bool = False
             keep_within: str = None
+            keep_last: int = None
             keep_secondly: int = None
             keep_minutely: int = None
             keep_hourly: int = None
@@ -574,9 +575,11 @@ class BorgAPI:
         :rtype: Union[str, dict, None]
         """
 
+        # pylint: disable=invalid-name
         @dataclass
         class _Optional(Options):
             foreground: bool = False
+            o: str = None
 
             # pylint: disable=useless-super-delegation
             def __init__(self, **kwargs):

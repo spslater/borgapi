@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add roadmap items to the README
 - Add `config` to the "Command Quirks" section of readme
 
+### Fixed
+- `__post_init__` was not being called by the `__init__` function, moved logic from `__post_init__`
+  into `__init__`
+
 ## [0.2.0] - 2021-05-10
 ### Added
 - Loading environment variables using

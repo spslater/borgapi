@@ -78,6 +78,9 @@ class CommonOptions(Options):
     verbose: bool = False
     # work on log level DEBUG
     debug: bool = False
+    # enable TOPIC debugging (can be specified multiple times).
+    # The logger path is borg.debug.<TOPIC> if TOPIC is not fully qualified.
+    debug_topic: list[str] = None
     # show progress information
     progress: bool = False
     #: output one JSON object per log line instead of formatted text.
@@ -108,7 +111,8 @@ class CommonOptions(Options):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def __post_init__(self):
+        if isinstance(self.debug_topic, str):
+            self.exclude = [self.exclude]
         if self.umask and not re.match(r"^[0-9]{4}", self.umask):
             raise ValueError("umask must be in format 0000 permission code, eg: 0077")
 
@@ -129,6 +133,9 @@ class ExclusionOptions(Options):
     # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+        if isinstance(self.exclude, str):
+            self.exclude = [self.exclude]
 
 
 @dataclass
@@ -153,9 +160,6 @@ class ExclusionInput(ExclusionOptions):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def __post_init__(self):
-        if isinstance(self.exclude, str):
-            self.exclude = [self.exclude]
         if isinstance(self.exclude_if_present, str):
             self.exclude_if_present = [self.exclude_if_present]
 
