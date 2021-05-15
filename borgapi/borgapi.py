@@ -23,7 +23,7 @@ from .options import (
     ExclusionOptions,
     ExclusionOutput,
     FilesystemOptions,
-    Options,
+    _Options,
 )
 
 
@@ -71,7 +71,7 @@ class BorgAPI:
 
         return capture
 
-    def _get_option_list(self, value: dict, options_class: Options) -> List:
+    def _get_option_list(self, value: dict, options_class: _Options) -> List:
         args = self.options | (value or {})
         return options_class(**args).parse()
 
@@ -79,7 +79,7 @@ class BorgAPI:
         self,
         command: str,
         values: dict,
-        options_class: Options,
+        options_class: _Options,
     ) -> List:
         optionals = self.defaults.get(command, {}) | (values or {})
         return options_class(**optionals).parse()
@@ -159,7 +159,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             append_only: bool = False
             storage_quota: str = None
             make_parent_dirs: bool = False
@@ -199,7 +199,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             dry_run: bool = False
             stats: bool = False
             list: bool = False
@@ -249,7 +249,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             list: bool = False
             dry_run: bool = False
             numeric_owner: bool = False
@@ -291,7 +291,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             repository_only: bool = False
             archives_only: bool = False
             verify_data: bool = False
@@ -361,7 +361,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             short: bool = False
             format: str = None
             json: bool = False
@@ -406,7 +406,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             numeric_owner: bool = False
             same_chunker_params: bool = False
             sort: bool = False
@@ -448,7 +448,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             dry_run: bool = False
             stats: bool = False
             cache_only: bool = False
@@ -489,7 +489,7 @@ class BorgAPI:
 
         # pylint: disable=too-many-instance-attributes
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             dry_run: bool = False
             force: bool = False
             stats: bool = False
@@ -536,7 +536,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             json: bool = False
 
             # pylint: disable=useless-super-delegation
@@ -577,7 +577,7 @@ class BorgAPI:
 
         # pylint: disable=invalid-name
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             foreground: bool = False
             o: str = None
 
@@ -664,7 +664,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             paper: bool = False
             qr_html: bool = False
 
@@ -702,7 +702,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             paper: bool = False
 
             # pylint: disable=useless-super-delegation
@@ -736,7 +736,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             dry_run: bool = False
             inplace: bool = False
             force: bool = False
@@ -779,7 +779,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             tar_filter: str = None
             list: bool = False
 
@@ -819,7 +819,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(Options):
+        class _Optional(_Options):
             cache: bool = False
             delete: bool = False
             list: bool = False
