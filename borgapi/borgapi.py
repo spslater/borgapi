@@ -26,7 +26,7 @@ from .options import (
     _Options,
 )
 
-
+# pylint: disable=too-many-public-methods
 class BorgAPI:
     """Automate borg in code"""
 
@@ -798,6 +798,35 @@ class BorgAPI:
 
         return self._run(arg_list, self.archiver.do_export_tar)
 
+    def serve(
+        self,
+        **options: Union[bool, str, int],
+    ) -> Union[str, dict, None]:
+        """Start a repository server process. This command is usually not used manually.
+
+        :return: Stdout of command, None if no output created,
+            dict if json flag used, str otherwise
+        :rtype: Union[str, dict, None]
+        """
+
+        @dataclass
+        class _Optional(_Options):
+            restrict_to_path: str = None
+            restrict_to_repository: str = None
+            append_only: bool = False
+            storage_quota: str = None
+
+            # pylint: disable=useless-super-delegation
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+
+        arg_list = []
+        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.append("serve")
+        arg_list.extend(self._get_command_list("serve", options, _Optional))
+
+        return self._run(arg_list, self.archiver.do_serve)
+
     def config(
         self,
         repository: str,
@@ -840,3 +869,87 @@ class BorgAPI:
                 return self._run(change, self.archiver.do_config)
         else:
             return self._run(arg_list, self.archiver.do_config)
+
+    def with_lock(
+        self,
+        repository: str,
+        command: str,
+        *args: Union[str, int],
+        **options: Union[bool, str, int]
+    ) -> Union[str, dict, None]:
+        """Run a user-specified command while the repository lock is held.
+
+        :param repository: repository to lock
+        :type repository: str
+        :param command: command to run
+        :type command: str
+        :param *args: command arguments
+        :type *args: Union[str, int]
+        :param **options: optional arguments specific to `config` as well as
+            common options; defaults to {}
+        :type **options: Union[bool, str, int]
+        :return: Stdout of command, None if no output created,
+            dict if json flag used, str otherwise
+        :rtype: Union[str, dict, None]
+        """
+
+        arg_list = []
+        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.append("with-lock")
+        arg_list.append(repository)
+        arg_list.append(command)
+        arg_list.extend(args)
+
+        return self._run(arg_list, self.archiver.do_with_lock)
+
+    def break_lock(
+        self,
+        repository: str,
+        **options: Union[bool, str, int]
+    ) -> Union[str, dict, None]:
+        """Break the repository and cache locks.
+
+        :param repository: repository for which to break the locks
+        :type repository: str
+        :param **options: optional arguments specific to `config` as well as
+            common options; defaults to {}
+        :type **options: Union[bool, str, int]
+        :return: Stdout of command, None if no output created,
+            dict if json flag used, str otherwise
+        :rtype: Union[str, dict, None]
+        """
+
+        arg_list = []
+        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.append("break-lock")
+        arg_list.append(repository)
+
+        return self._run(arg_list, self.archiver.do_break_lock)
+
+    def benchmark_crud(
+        self,
+        repository: str,
+        path: str,
+        **options: Union[bool, str, int]
+    ) -> Union[str, dict, None]:
+        """Benchmark borg CRUD (create, read, update, delete) operations.
+
+        :param repository: repository to use for benchmark (must exist)
+        :type repository: str
+        :param path: path were to create benchmark input data
+        :type path: str
+        :param **options: optional arguments specific to `config` as well as
+            common options; defaults to {}
+        :type **options: Union[bool, str, int]
+        :return: Stdout of command, None if no output created,
+            dict if json flag used, str otherwise
+        :rtype: Union[str, dict, None]
+        """
+
+        arg_list = []
+        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.append("benchmark crud")
+        arg_list.append(repository)
+        arg_list.append(path)
+
+        return self._run(arg_list, self.archiver.do_benchmark_crud)

@@ -166,14 +166,15 @@ api.diff(
 * key_import (key import)
 * upgrade
 * export_tar
-* config
-
-### Unavailable Borg Commands
-* recreate
 * serve
+* config
 * with-lock
 * break-lock
 * benchmark crud
+
+### Unavailable Borg Commands
+* recreate
+  * Since this is an experimental feature there are no current plans to implament this.
 
 ### Command Quirks
 Things that were changed from the way the default borg commands work to make things a bit
