@@ -15,7 +15,7 @@ class _DefaultField:
 
 
 @dataclass
-class _Options:
+class OptionsBase:
     def __init__(self, **kwargs):
         default = self.defaults()
         for option in kwargs:
@@ -61,7 +61,7 @@ class _Options:
 
 # pylint: disable=too-many-instance-attributes
 @dataclass
-class CommonOptions(_Options):
+class CommonOptions(OptionsBase):
     """Common Options for all Borg commands
 
     :param critical: work on log level CRITICAL
@@ -137,7 +137,7 @@ class CommonOptions(_Options):
 
 
 @dataclass
-class ExclusionOptions(_Options):
+class ExclusionOptions(OptionsBase):
     """Options for excluding various files from backup
 
     :param exclude: exclude paths matching PATTERN
@@ -214,7 +214,7 @@ class ExclusionOutput(ExclusionOptions):
 
 
 @dataclass
-class FilesystemOptions(_Options):
+class FilesystemOptions(OptionsBase):
     """Options for how to handle filesystem attributes
 
     :param one_file_system: stay in the same file system and do not store mount points of other
@@ -262,7 +262,7 @@ class FilesystemOptions(_Options):
 
 
 @dataclass
-class ArchiveOptions(_Options):
+class ArchiveOptions(OptionsBase):
     """Options related to the archive"""
 
     # pylint: disable=useless-super-delegation

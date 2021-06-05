@@ -23,7 +23,7 @@ from .options import (
     ExclusionOptions,
     ExclusionOutput,
     FilesystemOptions,
-    _Options,
+    OptionsBase,
 )
 
 # pylint: disable=too-many-public-methods
@@ -42,21 +42,22 @@ class BorgAPI:
         self.defaults = defaults or {}
         self.logger_setup = False
         self.archiver = borg.archiver.Archiver()
-        self.archiver.log_json = log_json
+        self.archiver.log_json = log_json or self.options.get("log_json", False)
         borg.archiver.setup_logging(level=log_level, is_serve=False, json=log_json)
         self.original_stdout = sys.stdout
         self._previous_dotenv = []
+        self._logger = logging.getLogger(__name__)
 
     def _run(self, arg_list: List, func: Callable) -> Union[str, dict, None]:
         capture = value = None
-        logging.debug("%s: %s", func.__name__, arg_list)
+        self._logger.debug("%s: %s", func.__name__, arg_list)
         args = self.archiver.get_args(arg_list, os.environ.get("SSH_ORIGINAL_COMMAND"))
 
         sys.stdout = temp_stdout = StringIO()
         try:
             func(args)
         except Exception as e:
-            logging.error(e)
+            self._logger.error(e)
             raise e
         else:
             value = temp_stdout.getvalue()
@@ -71,7 +72,7 @@ class BorgAPI:
 
         return capture
 
-    def _get_option_list(self, value: dict, options_class: _Options) -> List:
+    def _get_option_list(self, value: dict, options_class: OptionsBase) -> List:
         args = self.options | (value or {})
         return options_class(**args).parse()
 
@@ -79,7 +80,7 @@ class BorgAPI:
         self,
         command: str,
         values: dict,
-        options_class: _Options,
+        options_class: OptionsBase,
     ) -> List:
         optionals = self.defaults.get(command, {}) | (values or {})
         return options_class(**optionals).parse()
@@ -103,13 +104,13 @@ class BorgAPI:
         """
         variables = {}
         if filename:
-            logging.debug("Loading environment variables from %s", filename)
+            self._logger.debug("Loading environment variables from %s", filename)
             variables = dotenv_values(filename)
         elif dictionary or kwargs:
-            logging.debug("Loading dictionary with data: %s", variables)
+            self._logger.debug("Loading dictionary with data: %s", variables)
             variables = dictionary or kwargs
         else:
-            logging.debug('Looking for ".env" file to load variables from')
+            self._logger.debug('Looking for ".env" file to load variables from')
             variables = dotenv_values()
 
         self._previous_dotenv = variables.keys()
@@ -159,7 +160,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             append_only: bool = False
             storage_quota: str = None
             make_parent_dirs: bool = False
@@ -199,7 +200,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             dry_run: bool = False
             stats: bool = False
             list: bool = False
@@ -249,7 +250,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             list: bool = False
             dry_run: bool = False
             numeric_owner: bool = False
@@ -291,7 +292,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             repository_only: bool = False
             archives_only: bool = False
             verify_data: bool = False
@@ -361,7 +362,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             short: bool = False
             format: str = None
             json: bool = False
@@ -406,7 +407,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             numeric_owner: bool = False
             same_chunker_params: bool = False
             sort: bool = False
@@ -448,7 +449,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             dry_run: bool = False
             stats: bool = False
             cache_only: bool = False
@@ -489,7 +490,7 @@ class BorgAPI:
 
         # pylint: disable=too-many-instance-attributes
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             dry_run: bool = False
             force: bool = False
             stats: bool = False
@@ -536,7 +537,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             json: bool = False
 
             # pylint: disable=useless-super-delegation
@@ -577,7 +578,7 @@ class BorgAPI:
 
         # pylint: disable=invalid-name
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             foreground: bool = False
             o: str = None
 
@@ -664,7 +665,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             paper: bool = False
             qr_html: bool = False
 
@@ -702,7 +703,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             paper: bool = False
 
             # pylint: disable=useless-super-delegation
@@ -736,7 +737,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             dry_run: bool = False
             inplace: bool = False
             force: bool = False
@@ -779,7 +780,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             tar_filter: str = None
             list: bool = False
 
@@ -810,7 +811,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             restrict_to_path: str = None
             restrict_to_repository: str = None
             append_only: bool = False
@@ -848,7 +849,7 @@ class BorgAPI:
         """
 
         @dataclass
-        class _Optional(_Options):
+        class _Optional(OptionsBase):
             cache: bool = False
             delete: bool = False
             list: bool = False
