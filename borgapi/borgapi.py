@@ -40,12 +40,16 @@ class BorgAPI:
     ):
         self.options = options or {}
         self.defaults = defaults or {}
-        self.logger_setup = False
         self.archiver = borg.archiver.Archiver()
+        self._previous_dotenv = []
+        self._setup_logging(log_level, log_json)
+
+    def _setup_logging(self, log_level: str = "info", log_json: bool = False):
+        self.logger_setup = False
         self.archiver.log_json = log_json or self.options.get("log_json", False)
         borg.archiver.setup_logging(level=log_level, is_serve=False, json=log_json)
         self.original_stdout = sys.stdout
-        self._previous_dotenv = []
+        logging.getLogger("borgapi")
         self._logger = logging.getLogger(__name__)
 
     def _run(self, arg_list: List, func: Callable) -> Union[str, dict, None]:
