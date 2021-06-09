@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2021-06-09
+### Fixed
+- `borg` removes the first value from the args list. The list being passed in started with the
+  command name (eg `init`, `create`, `list`) so that was getting removed. Added `borgapi` as the
+  first argument for it to get removed when the command is called now.
+
+### Changed
+- Commands now return captured `stdout` and `stderr` instead of just `stdout`
+
 ## [0.2.1] - 2021-05-15
 ### Added
 - Borg commands `serve`, `with-lock`, `break-lock`, and `benchmark crud` as

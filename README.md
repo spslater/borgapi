@@ -24,9 +24,9 @@ api = borgapi.BorgAPI(defaults={}, options={})
 api.init("/foo/bar", make_parent_dirs=True)
 
 # Create backup 
-output = api.create("/foo/bar::backup", "/home", "/mnt/baz", json=True)
-print(output["name"]) # backup
-print(output["repository"]["location"]) # /foo/bar
+stdout, stderr = api.create("/foo/bar::backup", "/home", "/mnt/baz", json=True)
+print(stdout["name"]) # backup
+print(stdout["repository"]["location"]) # /foo/bar
 ```
 
 ### BorgAPI Init arguments
@@ -34,7 +34,7 @@ print(output["repository"]["location"]) # /foo/bar
 class BorgAPI(
     defaults: dict = None,
     options: dict = None,
-    log_level: str = 'info',
+    log_level: str = "info",
     log_json: bool = False
 )
 ```
@@ -186,6 +186,20 @@ more manageable.
   * `borg config` can only change one key at a time
   * `changes` is a list of `(NAME, VALUE)` tuples so multiple changes can be made at once
     to the same repository
+
+### Capturing Output
+`borg` commands display information different depending on what is asked for.
+For example, `create` with the `--list` option writes the file list to the logger.
+When the `--log-json` common flag is included it writes it to stderr. The `--stats`
+option writes to the logger, like the `--list` option does, but when `--json` is used,
+which outputs the stats info as a json object, it gets written to stdout.
+
+Currently the api returns a tuple, `(stderr, stdout)`. If either `json` or `log_json` is set,
+it'll try to convert the tuple output to json. If it is unable and there is output that is captured
+it'll return the plaintext value. If no output is captured, it returns `None`.
+
+This will be researched more so that specific commands will return relevant and clear values
+when called.
 
 ## Roadmap
 - Make compatible with same version of Python that Borg uses (currently 3.5)

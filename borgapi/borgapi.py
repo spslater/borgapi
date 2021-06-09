@@ -5,7 +5,7 @@ import os
 import sys
 from dataclasses import dataclass
 from io import StringIO
-from json import loads
+from json import decoder, loads
 from typing import Callable, List, Optional, Union
 
 import borg.archive
@@ -53,28 +53,52 @@ class BorgAPI:
         self._logger = logging.getLogger(__name__)
 
     def _run(self, arg_list: List, func: Callable) -> Union[str, dict, None]:
-        capture = value = None
+        stdout_run = stderr_run = None
         self._logger.debug("%s: %s", func.__name__, arg_list)
+        arg_list.insert(0, "borgapi")
         args = self.archiver.get_args(arg_list, os.environ.get("SSH_ORIGINAL_COMMAND"))
 
-        sys.stdout = temp_stdout = StringIO()
+        original_stderr = sys.stderr
+
+        sys.stdout = stdout_temp = StringIO()
+        sys.stderr = stderr_temp = StringIO()
         try:
             func(args)
         except Exception as e:
             self._logger.error(e)
             raise e
         else:
-            value = temp_stdout.getvalue()
+            stdout_run = stdout_temp.getvalue().strip()
+            stderr_run = stderr_temp.getvalue().strip()
         finally:
+            sys.stdout.close()
             sys.stdout = self.original_stdout
-            temp_stdout.close()
+            sys.stderr = original_stderr
+            stdout_temp.close()
+            stderr_temp.close()
 
-        if getattr(args, "json", False) and value:
-            capture = loads(value)
-        elif value:
-            capture = value
-
-        return capture
+        if getattr(args, "json", False) or getattr(args, "json_lines", False):
+            stdout_json = stderr_json = None
+            if stdout_run:
+                try:
+                    stdout_json = loads(stdout_run)
+                except decoder.JSONDecodeError:
+                    clean_json = f'[{",".join(stdout_run.splitlines())}]'
+                    try:
+                        stdout_json = loads(clean_json)
+                    except decoder.JSONDecodeError:
+                        stdout_json = (stdout_run or None)
+            if stderr_run:
+                try:
+                    stderr_json = loads(stderr_run)
+                except decoder.JSONDecodeError:
+                    clean_json = f'[{",".join(stderr_run.splitlines())}]'
+                    try:
+                        stderr_json = loads(clean_json)
+                    except decoder.JSONDecodeError:
+                        stderr_json = (stderr_run or None)
+            return stdout_json, stderr_json
+        return (stdout_run or None), (stderr_run or None)
 
     def _get_option_list(self, value: dict, options_class: OptionsBase) -> List:
         args = self.options | (value or {})
@@ -880,7 +904,7 @@ class BorgAPI:
         repository: str,
         command: str,
         *args: Union[str, int],
-        **options: Union[bool, str, int]
+        **options: Union[bool, str, int],
     ) -> Union[str, dict, None]:
         """Run a user-specified command while the repository lock is held.
 
@@ -908,9 +932,7 @@ class BorgAPI:
         return self._run(arg_list, self.archiver.do_with_lock)
 
     def break_lock(
-        self,
-        repository: str,
-        **options: Union[bool, str, int]
+        self, repository: str, **options: Union[bool, str, int]
     ) -> Union[str, dict, None]:
         """Break the repository and cache locks.
 
@@ -932,10 +954,7 @@ class BorgAPI:
         return self._run(arg_list, self.archiver.do_break_lock)
 
     def benchmark_crud(
-        self,
-        repository: str,
-        path: str,
-        **options: Union[bool, str, int]
+        self, repository: str, path: str, **options: Union[bool, str, int]
     ) -> Union[str, dict, None]:
         """Benchmark borg CRUD (create, read, update, delete) operations.
 
