@@ -6,7 +6,7 @@ import sys
 from dataclasses import dataclass
 from io import StringIO
 from json import decoder, loads
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import borg.archive
 import borg.archiver
@@ -25,6 +25,11 @@ from .options import (
     FilesystemOptions,
     OptionsBase,
 )
+
+StdoutCapture = Union[str, dict, None]
+StderrCapture = Union[str, dict, None]
+
+BorgRunOutput = Tuple[StdoutCapture, StderrCapture]
 
 # pylint: disable=too-many-public-methods
 class BorgAPI:
@@ -52,7 +57,8 @@ class BorgAPI:
         logging.getLogger("borgapi")
         self._logger = logging.getLogger(__name__)
 
-    def _run(self, arg_list: List, func: Callable) -> Union[str, dict, None]:
+    # pylint: disable=used-before-assignment
+    def _run(self, arg_list: List, func: Callable) -> BorgRunOutput:
         stdout_run = stderr_run = None
         self._logger.debug("%s: %s", func.__name__, arg_list)
         arg_list.insert(0, "borgapi")
@@ -87,7 +93,7 @@ class BorgAPI:
                     try:
                         stdout_json = loads(clean_json)
                     except decoder.JSONDecodeError:
-                        stdout_json = (stdout_run or None)
+                        stdout_json = stdout_run or None
             if stderr_run:
                 try:
                     stderr_json = loads(stderr_run)
@@ -96,12 +102,12 @@ class BorgAPI:
                     try:
                         stderr_json = loads(clean_json)
                     except decoder.JSONDecodeError:
-                        stderr_json = (stderr_run or None)
+                        stderr_json = stderr_run or None
             return stdout_json, stderr_json
         return (stdout_run or None), (stderr_run or None)
 
     def _get_option_list(self, value: dict, options_class: OptionsBase) -> List:
-        args = self.options | (value or {})
+        args = {**self.options, **(value or {})}
         return options_class(**args).parse()
 
     def _get_command_list(
@@ -110,7 +116,7 @@ class BorgAPI:
         values: dict,
         options_class: OptionsBase,
     ) -> List:
-        optionals = self.defaults.get(command, {}) | (values or {})
+        optionals = {**self.defaults.get(command, {}), **(values or {})}
         return options_class(**optionals).parse()
 
     def set_environ(
@@ -146,7 +152,9 @@ class BorgAPI:
         config = StringIO()
         for key, value in variables.items():
             config.write(f"{key}={value}\n")
-        load_dotenv(stream=config)
+        config.seek(0)
+        load_dotenv(stream=config, override=True)
+        config.close()
 
     def unset_environ(
         self,
@@ -160,10 +168,9 @@ class BorgAPI:
         :param *variable: variable names to remove
         :type *variable: Optional[str]
         """
-        variables = (
-            [k for k in variable if k in os.environ] or
-            [k for k in self._previous_dotenv if k in os.environ]
-        )
+        variables = [k for k in variable if k in os.environ] or [
+            k for k in self._previous_dotenv if k in os.environ
+        ]
         for var in variables:
             del os.environ[var]
 
@@ -172,7 +179,7 @@ class BorgAPI:
         repository: str,
         encryption: str = "repokey",
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Initialize an empty repository. A repository is a filesystem directory
         containing the deduplicated data from zero or more archives.
 
@@ -184,7 +191,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             json dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -211,7 +218,7 @@ class BorgAPI:
         archive: str,
         *paths: str,
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Create a backup archive containing all files found while recursively
         traversing all paths specified.
 
@@ -224,7 +231,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -262,7 +269,7 @@ class BorgAPI:
         archive: str,
         *paths: Optional[str],
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Extract the contents of an archive.
 
         :param archive: archive to extract
@@ -274,7 +281,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -306,7 +313,7 @@ class BorgAPI:
         self,
         *repository_or_archive: str,
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Verify the consistency of a repository and the corresponding archives.
 
         :param *repository_or_archive: repository or archive to check consistency of
@@ -316,7 +323,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -345,7 +352,7 @@ class BorgAPI:
         archive: str,
         newname: str,
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Rename an archive in the repository.
 
         :param archive: archive to rename
@@ -357,7 +364,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         arg_list = []
@@ -374,7 +381,7 @@ class BorgAPI:
         repository_or_archive: str,
         *paths: Optional[str],
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """List the contents of a repository or an archive.
 
         :param repository_or_archive: repository or archive to list contents of
@@ -386,7 +393,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -417,7 +424,7 @@ class BorgAPI:
         archive_2: str,
         *paths: Optional[str],
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Find the differences (file contents, user/group/mode) between archives.
 
         :param repo_archive_1: repository location and ARCHIVE1 name
@@ -431,7 +438,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -461,7 +468,7 @@ class BorgAPI:
         repository_or_archive: str,
         *archives: Optional[str],
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Delete an archive from the repository or the complete repository
 
         :param repository_or_archive: repository or archive to delete
@@ -473,7 +480,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -502,7 +509,7 @@ class BorgAPI:
         self,
         repository: str,
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Prune a repository by deleting all archives not matching any of the specified
         retention options.
 
@@ -513,7 +520,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         # pylint: disable=too-many-instance-attributes
@@ -551,7 +558,7 @@ class BorgAPI:
         self,
         repository_or_archive: str,
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Display detailed information about the specified archive or repository.
 
         :param repository_or_archive: repository or archive to display information about
@@ -561,7 +568,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -587,7 +594,7 @@ class BorgAPI:
         mountpoint: str,
         *paths: Optional[str],
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Mount an archive as a FUSE filesystem.
 
         :param repository_or_archive: repository or archive to mount
@@ -601,7 +608,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         # pylint: disable=invalid-name
@@ -630,7 +637,7 @@ class BorgAPI:
         self,
         mountpoint: str,
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Un-mount a FUSE filesystem that was mounted with `mount`.
 
         :param mountpoint: mountpoint of the filesystem to umount
@@ -640,7 +647,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
@@ -653,7 +660,7 @@ class BorgAPI:
         self,
         repository: str,
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Change the passphrase protecting the repository encryption.
 
         :param repository: repository to modify
@@ -663,7 +670,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
@@ -677,7 +684,7 @@ class BorgAPI:
         repository: str,
         path: str,
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Copy repository encryption key to another location.
 
         :param repository: repository to get key for
@@ -689,7 +696,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -706,7 +713,7 @@ class BorgAPI:
         arg_list.extend(["key", "export"])
         arg_list.extend(self._get_command_list("key_export", options, _Optional))
         arg_list.append(repository)
-        arg_list.extend(path)
+        arg_list.append(path)
 
         return self._run(arg_list, self.archiver.do_key_export)
 
@@ -715,7 +722,7 @@ class BorgAPI:
         repository: str,
         path: str,
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Restore a key previously backed up with the export command.
 
         :param repository: repository to get key for
@@ -727,7 +734,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -743,7 +750,7 @@ class BorgAPI:
         arg_list.extend(["key", "import"])
         arg_list.extend(self._get_command_list("key_import", options, _Optional))
         arg_list.append(repository)
-        arg_list.extend(path)
+        arg_list.append(path)
 
         return self._run(arg_list, self.archiver.do_key_import)
 
@@ -751,7 +758,7 @@ class BorgAPI:
         self,
         repository: str,
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Upgrade an existing, local Borg repository.
 
         :param repository: path to the repository to be upgraded
@@ -761,7 +768,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -790,7 +797,7 @@ class BorgAPI:
         file: str,
         *paths: Optional[str],
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Create a tarball from an archive.
 
         :param archive: archive to export
@@ -804,7 +811,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -830,12 +837,12 @@ class BorgAPI:
     def serve(
         self,
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Start a repository server process. This command is usually not used manually.
 
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -859,21 +866,21 @@ class BorgAPI:
     def config(
         self,
         repository: str,
-        changes: List[tuple[str, str]],
+        *changes: Union[str, Tuple[str, str]],
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Get and set options in a local repository or cache config file.
 
         :param repository: repository to configure
         :type repository: str
-        :param changes: list of config key, new value tuples
-        :type changes: list[(str,str)]
+        :param *changes: config key, new value
+        :type *changes: Union[str, Tuple[str, str]]
         :param **options: optional arguments specific to `config` as well as
             common options; defaults to {}
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         @dataclass
@@ -892,12 +899,20 @@ class BorgAPI:
         arg_list.extend(self._get_command_list("config", options, _Optional))
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(repository)
-        if changes:
-            for name, value in changes:
-                change = arg_list + [name, value]
-                return self._run(change, self.archiver.do_config)
-        else:
+        out, err = [], []
+        if not changes:
             return self._run(arg_list, self.archiver.do_config)
+
+        for change in changes:
+            if isinstance(change, tuple):
+                change = arg_list + [change[0], change[1]]
+                self._run(change, self.archiver.do_config)
+            else:
+                change = arg_list + [change]
+                temp_out, temp_err = self._run(change, self.archiver.do_config)
+                out.append(temp_out)
+                err.append(temp_err)
+        return out, err
 
     def with_lock(
         self,
@@ -905,7 +920,7 @@ class BorgAPI:
         command: str,
         *args: Union[str, int],
         **options: Union[bool, str, int],
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Run a user-specified command while the repository lock is held.
 
         :param repository: repository to lock
@@ -919,7 +934,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         arg_list = []
@@ -933,7 +948,7 @@ class BorgAPI:
 
     def break_lock(
         self, repository: str, **options: Union[bool, str, int]
-    ) -> Union[str, dict, None]:
+    ) -> BorgRunOutput:
         """Break the repository and cache locks.
 
         :param repository: repository for which to break the locks
@@ -943,7 +958,7 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         arg_list = []
@@ -954,8 +969,11 @@ class BorgAPI:
         return self._run(arg_list, self.archiver.do_break_lock)
 
     def benchmark_crud(
-        self, repository: str, path: str, **options: Union[bool, str, int]
-    ) -> Union[str, dict, None]:
+        self,
+        repository: str,
+        path: str,
+        **options: Union[bool, str, int],
+    ) -> BorgRunOutput:
         """Benchmark borg CRUD (create, read, update, delete) operations.
 
         :param repository: repository to use for benchmark (must exist)
@@ -967,12 +985,12 @@ class BorgAPI:
         :type **options: Union[bool, str, int]
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: Union[str, dict, None]
+        :rtype: BorgRunOutput
         """
 
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
-        arg_list.append("benchmark crud")
+        arg_list.extend(["benchmark", "crud"])
         arg_list.append(repository)
         arg_list.append(path)
 

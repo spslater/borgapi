@@ -1,0 +1,4 @@
+BORG_PASSCOMMAND="cat test/res/test_passphrase"
+BORG_LOGGING_CONF="test/res/test_logging.conf"
+BORG_CHECK_I_KNOW_WHAT_I_AM_DOING=YES
+BORG_DELETE_I_KNOW_WHAT_I_AM_DOING=YES

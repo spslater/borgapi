@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="borgapi",
-    version="0.3.1",
+    version="0.4.0",
     author="Sean Slater",
     author_email="seanslater@whatno.io",
     description="Wrapper for borgbackup to easily use in code",
@@ -19,10 +19,14 @@ setuptools.setup(
     classifiers=[
         "Development Status :: 4 - Beta",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "Operating System :: OS Independent",
         "License :: OSI Approved :: MIT License",
         "Topic :: Utilities",
     ],
     keywords="borgbackup backup api",
-    python_requires=">=3.9",
+    python_requires=">=3.6",
 )

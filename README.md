@@ -14,6 +14,8 @@ Requires:
 * `borgbackup`: 1.1.16
 * `python-dotenv`: 0.17.1
 
+Now supports Python 3.6 and above.
+
 ## Usage
 ```python
 import borgapi
@@ -184,8 +186,11 @@ more manageable.
   * `encryption` is an optional argument that defaults to `repokey`
 * __config__
   * `borg config` can only change one key at a time
-  * `changes` is a list of `(NAME, VALUE)` tuples so multiple changes can be made at once
-    to the same repository
+  * `*changes` can either be:
+    * `NAME` to get the current value of the key
+    * `(NAME, VALUE)` which will change they key
+  * Any single string `NAME` values passed to `*change` will be returned as a list with their
+    values in the order they were passed, tuple changes will not appear in that list
 
 ### Capturing Output
 `borg` commands display information different depending on what is asked for.
@@ -202,7 +207,6 @@ This will be researched more so that specific commands will return relevant and 
 when called.
 
 ## Roadmap
-- Make compatible with same version of Python that Borg uses (currently 3.5)
 - Start work on Borg's beta branch chagnes and keeping up with those
 
 ## Links

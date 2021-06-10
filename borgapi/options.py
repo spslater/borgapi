@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Dict, List, Optional, Union
 
 
 @dataclass
@@ -36,18 +36,18 @@ class OptionsBase:
 
     # pylint: disable=no-member
     @classmethod
-    def defaults(cls) -> dict[_DefaultField]:
+    def defaults(cls) -> Dict[str, _DefaultField]:
         """Get list of fields for an Options dataclass"""
         values = {}
         for field in cls.__dataclass_fields__.values():
             values[field.name] = _DefaultField(field.name, field.type, field.default)
         return values
 
-    def parse(self) -> list[Optional[Union[str, int]]]:
+    def parse(self) -> List[Optional[Union[str, int]]]:
         """Turn options into list for argv
 
         :return: options for the command line
-        :rtype: list[Optional[Union[str, int]]]
+        :rtype: List[Optional[Union[str, int]]]
         """
         args = []
         # pylint: disable=no-member
@@ -85,7 +85,7 @@ class CommonOptions(OptionsBase):
     :type debug: bool
     :param debug_topic: enable TOPIC debugging (can be specified multiple times). The logger path
         is borg.debug.<TOPIC> if TOPIC is not fully qualified.
-    :type debug_topic: list[str]
+    :type debug_topic: List[str]
     :param progress: show progress information
     :type progress: bool
     :param log_json: output one JSON object per log line instead of formatted text.
@@ -119,7 +119,7 @@ class CommonOptions(OptionsBase):
     info: bool = False
     verbose: bool = False
     debug: bool = False
-    debug_topic: list[str] = None
+    debug_topic: List[str] = None
     progress: bool = False
     log_json: bool = False
     lock_wait: int = None
@@ -148,7 +148,7 @@ class ExclusionOptions(OptionsBase):
     """Options for excluding various files from backup
 
     :param exclude: exclude paths matching PATTERN
-    :type exclude: list[str]
+    :type exclude: List[str]
     :param exclude_from: read exclude patterns from EXCLUDEFILE, one per line
     :type exclude_from: str
     :param pattern: include/exclude paths matching PATTERN (experimental)
@@ -158,9 +158,9 @@ class ExclusionOptions(OptionsBase):
     :type patterns_from: str
     """
 
-    exclude: list[str] = None
+    exclude: List[str] = None
     exclude_from: str = None
-    pattern: str = None
+    pattern: List[str] = None
     patterns_from: str = None
 
     # pylint: disable=useless-super-delegation
@@ -169,6 +169,8 @@ class ExclusionOptions(OptionsBase):
 
         if isinstance(self.exclude, str):
             self.exclude = [self.exclude]
+        if isinstance(self.pattern, str):
+            self.pattern = [self.pattern]
 
 
 @dataclass
@@ -180,7 +182,7 @@ class ExclusionInput(ExclusionOptions):
     :type exclude_caches: bool
     :param exclude_if_present: exclude directories that are tagged by containing a filesystem
         object with the given NAME
-    :type exclude_if_present: list[str]
+    :type exclude_if_present: List[str]
     :param keep_exclude_tags: if tag objects are specified with --exclude-if-present, don’t omit
         the tag objects themselves from the backup archive
     :type keep_exclude_tags: bool
@@ -191,7 +193,7 @@ class ExclusionInput(ExclusionOptions):
     """
 
     exclude_caches: bool = False
-    exclude_if_present: list[str] = None
+    exclude_if_present: List[str] = None
     keep_exclude_tags: bool = False
     keep_tag_files: bool = False
     exclude_nodump: bool = False

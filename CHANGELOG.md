@@ -6,6 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2021-06-11
+### Fixed
+- `change`
+  - `changes` argument now positional magic variable. (`*changes`)
+  - Passing in strings to get the values returns a list
+  - Passing in tuples to set the values returns None
+- `import` and `export`:
+  - Appends `path` to end of args instead of trying to extend because only one path can be passed
+- `benchmark_crud`:
+  - Command is now added as two seperate words instead of one
+    (`"benchmark crud"` -> `["benchmark", "crud"]`)
+- `ExclusionOptions`:
+  - `pattern` now processed as a list
+
+### Changed
+- Type hint for command returns changed to custom type hint `BorgRunOutput` which is a tuple
+  `Union[str, dict, None]` for stdout and stderr capture
+
 ## [0.3.1] - 2021-06-09
 ### Fixed
 - `borg` removes the first value from the args list. The list being passed in started with the
