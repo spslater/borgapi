@@ -16,7 +16,6 @@ class _DefaultField:
 
 @dataclass
 class OptionsBase:
-<<<<<<< HEAD
     """Holds all the shared methods for the subclasses
 
     Every subclass should use this __init__ method becuase it will only set the values that the
@@ -24,8 +23,6 @@ class OptionsBase:
     passed to every constructor and not have to worry about duplicating flags.
     """
 
-=======
->>>>>>> master
     def __init__(self, **kwargs):
         default = self.defaults()
         for option in kwargs:
