@@ -3,7 +3,6 @@
 import logging
 import os
 import sys
-from dataclasses import dataclass
 from io import StringIO
 from json import decoder, loads
 from typing import Callable, List, Optional, Tuple, Union
@@ -18,6 +17,7 @@ from .options import (
     ArchiveInput,
     ArchiveOutput,
     ArchivePattern,
+    CommandOptions,
     CommonOptions,
     ExclusionInput,
     ExclusionOptions,
@@ -44,7 +44,7 @@ class BorgAPI:
         log_json: bool = False,
     ):
         self.options = options or {}
-        self.defaults = defaults or {}
+        self.optionals = CommandOptions(defaults)
         self.archiver = borg.archiver.Archiver()
         self._previous_dotenv = []
         self._setup_logging(log_level, log_json)
@@ -109,15 +109,6 @@ class BorgAPI:
     def _get_option_list(self, value: dict, options_class: OptionsBase) -> List:
         args = {**self.options, **(value or {})}
         return options_class(**args).parse()
-
-    def _get_command_list(
-        self,
-        command: str,
-        values: dict,
-        options_class: OptionsBase,
-    ) -> List:
-        optionals = {**self.defaults.get(command, {}), **(values or {})}
-        return options_class(**optionals).parse()
 
     def set_environ(
         self,
@@ -193,22 +184,11 @@ class BorgAPI:
             json dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            append_only: bool = False
-            storage_quota: str = None
-            make_parent_dirs: bool = False
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("init")
         arg_list.extend(["--encryption", encryption])
-        arg_list.extend(self._get_command_list("init", options, _Optional))
+        arg_list.extend(self.optionals.to_list("init", options))
         arg_list.append(repository)
 
         return self._run(arg_list, self.archiver.do_init)
@@ -233,29 +213,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            dry_run: bool = False
-            stats: bool = False
-            list: bool = False
-            filter: str = None
-            json: bool = False
-            no_cache_sync: bool = False
-            no_files_cache: bool = False
-            stdin_name: str = None
-            stdin_user: str = None
-            stdin_group: str = None
-            stdin_mode: str = None
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("create")
-        arg_list.extend(self._get_command_list("create", options, _Optional))
+        arg_list.extend(self.optionals.to_list("create", options))
         arg_list.extend(self._get_option_list(options, ExclusionInput))
         arg_list.extend(self._get_option_list(options, FilesystemOptions))
         arg_list.extend(self._get_option_list(options, ArchiveInput))
@@ -283,26 +244,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            list: bool = False
-            dry_run: bool = False
-            numeric_owner: bool = False
-            nobsdflags: bool = False
-            noacls: bool = False
-            noxattrs: bool = False
-            stdout: bool = False
-            sparse: bool = False
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("extract")
-        arg_list.extend(self._get_command_list("extract", options, _Optional))
+        arg_list.extend(self.optionals.to_list("extract", options))
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(archive)
         arg_list.extend(paths)
@@ -325,23 +270,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            repository_only: bool = False
-            archives_only: bool = False
-            verify_data: bool = False
-            repair: bool = False
-            save_space: bool = False
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("check")
-        arg_list.extend(self._get_command_list("check", options, _Optional))
+        arg_list.extend(self.optionals.to_list("check", options))
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.extend(repository_or_archive)
 
@@ -366,7 +298,6 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("rename")
@@ -395,22 +326,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            short: bool = False
-            format: str = None
-            json: bool = False
-            json_lines: bool = False
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("list")
-        arg_list.extend(self._get_command_list("list", options, _Optional))
+        arg_list.extend(self.optionals.to_list("list", options))
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.extend(self._get_option_list(options, ExclusionOptions))
         arg_list.append(repository_or_archive)
@@ -440,22 +359,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            numeric_owner: bool = False
-            same_chunker_params: bool = False
-            sort: bool = False
-            json_lines: bool = False
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("diff")
-        arg_list.extend(self._get_command_list("diff", options, _Optional))
+        arg_list.extend(self.optionals.to_list("diff", options))
         arg_list.extend(self._get_option_list(options, ExclusionOptions))
         arg_list.append(repo_archive_1)
         arg_list.append(archive_2)
@@ -482,23 +389,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            dry_run: bool = False
-            stats: bool = False
-            cache_only: bool = False
-            force: bool = False
-            save_space: bool = False
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("delete")
-        arg_list.extend(self._get_command_list("delete", options, _Optional))
+        arg_list.extend(self.optionals.to_list("delete", options))
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.append(repository_or_archive)
         arg_list.extend(archives)
@@ -522,33 +416,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        # pylint: disable=too-many-instance-attributes
-        @dataclass
-        class _Optional(OptionsBase):
-            dry_run: bool = False
-            force: bool = False
-            stats: bool = False
-            list: bool = False
-            keep_within: str = None
-            keep_last: int = None
-            keep_secondly: int = None
-            keep_minutely: int = None
-            keep_hourly: int = None
-            keep_daily: int = None
-            keep_weekly: int = None
-            keep_monthly: int = None
-            keep_yearly: int = None
-            save_space: bool = False
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("prune")
-        arg_list.extend(self._get_command_list("prune", options, _Optional))
+        arg_list.extend(self.optionals.to_list("prune", options))
         arg_list.extend(self._get_option_list(options, ArchivePattern))
         arg_list.append(repository)
 
@@ -570,19 +441,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            json: bool = False
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("info")
-        arg_list.extend(self._get_command_list("info", options, _Optional))
+        arg_list.extend(self.optionals.to_list("info", options))
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.append(repository_or_archive)
 
@@ -610,21 +472,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        # pylint: disable=invalid-name
-        @dataclass
-        class _Optional(OptionsBase):
-            foreground: bool = False
-            o: str = None
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("mount")
-        arg_list.extend(self._get_command_list("mount", options, _Optional))
+        arg_list.extend(self.optionals.to_list("mount", options))
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(repository_or_archive)
@@ -698,20 +549,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            paper: bool = False
-            qr_html: bool = False
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.extend(["key", "export"])
-        arg_list.extend(self._get_command_list("key_export", options, _Optional))
+        arg_list.extend(self.optionals.to_list("key_export", options))
         arg_list.append(repository)
         arg_list.append(path)
 
@@ -736,19 +577,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            paper: bool = False
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.extend(["key", "import"])
-        arg_list.extend(self._get_command_list("key_import", options, _Optional))
+        arg_list.extend(self.optionals.to_list("key_import", options))
         arg_list.append(repository)
         arg_list.append(path)
 
@@ -770,23 +602,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            dry_run: bool = False
-            inplace: bool = False
-            force: bool = False
-            tam: bool = False
-            disable_tam: bool = False
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("upgrade")
-        arg_list.extend(self._get_command_list("upgrade", options, _Optional))
+        arg_list.extend(self.optionals.to_list("upgrade", options))
         arg_list.append(repository)
 
         return self._run(arg_list, self.archiver.do_upgrade)
@@ -813,20 +632,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            tar_filter: str = None
-            list: bool = False
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("export-tar")
-        arg_list.extend(self._get_command_list("export_tar", options, _Optional))
+        arg_list.extend(self.optionals.to_list("export_tar", options))
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(archive)
         arg_list.append(file)
@@ -844,22 +653,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            restrict_to_path: str = None
-            restrict_to_repository: str = None
-            append_only: bool = False
-            storage_quota: str = None
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("serve")
-        arg_list.extend(self._get_command_list("serve", options, _Optional))
+        arg_list.extend(self.optionals.to_list("serve", options))
 
         return self._run(arg_list, self.archiver.do_serve)
 
@@ -882,21 +679,10 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
-        @dataclass
-        class _Optional(OptionsBase):
-            cache: bool = False
-            delete: bool = False
-            list: bool = False
-
-            # pylint: disable=useless-super-delegation
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("config")
-        arg_list.extend(self._get_command_list("config", options, _Optional))
+        arg_list.extend(self.optionals.to_list("config", options))
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(repository)
         out, err = [], []
@@ -936,7 +722,6 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("with-lock")
@@ -960,7 +745,6 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("break-lock")
@@ -987,7 +771,6 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
-
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.extend(["benchmark", "crud"])

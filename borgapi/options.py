@@ -1,8 +1,24 @@
 """Option Dataclasses"""
 
+import logging
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Set, Union
+
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "CommonOptions",
+    "ExclusionOptions",
+    "ExclusionInput",
+    "ExclusionOutput",
+    "FilesystemOptions",
+    "ArchiveOptions",
+    "ArchiveInput",
+    "ArchivePattern",
+    "ArchiveOutput",
+    "CommandOptions",
+]
 
 
 @dataclass
@@ -24,7 +40,7 @@ class OptionsBase:
     """
 
     def __init__(self, **kwargs):
-        default = self.defaults()
+        default = self._defaults()
         for option in kwargs:
             if option in default:
                 setattr(self, option, kwargs[option])
@@ -34,14 +50,30 @@ class OptionsBase:
         """Add flag marker and replace underscores with dashes in name"""
         return "--" + value.replace("_", "-")
 
+    def _field_set(self, field: str) -> bool:
+        # pylint: disable=no-member
+        default = self.__dataclass_fields__.get(field).default
+        set_value = getattr(self, field)
+        return set_value != default
+
+    def _log_deprecated(self, old_field: str, new_field: str = None) -> None:
+        if self._field_set(old_field):
+            if new_field:
+                logger.warning(
+                    "[DEPRECATED] %s, use `%s` instead",
+                    old_field,
+                    new_field,
+                )
+            else:
+                logger.warning("[DEPRECATED] %s, not being replaced", old_field)
+
     # pylint: disable=no-member
     @classmethod
-    def defaults(cls) -> Dict[str, _DefaultField]:
-        """Get list of fields for an Options dataclass"""
-        values = {}
+    def _defaults(cls) -> Set[str]:
+        defaults = set()
         for field in cls.__dataclass_fields__.values():
-            values[field.name] = _DefaultField(field.name, field.type, field.default)
-        return values
+            defaults.add(field.name)
+        return defaults
 
     def parse(self) -> List[Optional[Union[str, int]]]:
         """Turn options into list for argv
@@ -349,3 +381,499 @@ class ArchiveOutput(ArchivePattern):
     # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+
+@dataclass
+class InitOptional(OptionsBase):
+    """Init command options
+
+    :param append_only: create an append-only mode repository
+    :type append_only: bool
+    :param storage_quota: set storage quota of the new repository (e.g. 5G, 1.5T)
+        borg default: no quota
+    :type storage_quota: str
+    :param make_parent_dirs: create the parent directories of the repository
+        directory, if they are missing
+    :type make_parent_dirs: bool
+    """
+
+    append_only: bool = False
+    storage_quota: str = None
+    make_parent_dirs: bool = False
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+# pylint: disable=too-many-instance-attributes
+@dataclass
+class CreateOptional(OptionsBase):
+    """Create command options
+
+    :param dry_run: do not create a backup archive
+    :type dry_run: bool
+    :param stats: print statistics for the created archive
+    :type stats: bool
+    :param list: output verbose list of items (files, dirs, …)
+    :type list: bool
+    :param filter: only display items with the given status characters
+    :type filter: str
+    :param json: output stats as JSON. Implies `stats`
+    :type json: bool
+    :param no_cache_sync: experimental: do not synchronize the cache.
+        Implies not using the files cache
+    :type no_cache_sync: bool
+    :param no_files_cache: do not load/update the file metadata cache
+        used to detect unchanged files
+    :type no_files_cache: bool
+    :param stdin_name: use NAME in archive for stdin data
+        borg default: “stdin”
+    :type stdin_name: str
+    :param stdin_user: set user USER in archive for stdin data
+        borg default: "root"
+    :type stdin_user: str
+    :param stdin_group: set group GROUP in archive for stdin data
+        borg default: "root"
+    :type stdin_group: str
+    :param stdin_mode: set mode to M in archive for stdin data
+        borg default: 0660
+    :type stdin_mode: str
+    """
+
+    dry_run: bool = False
+    stats: bool = False
+    list: bool = False
+    filter: str = None
+    json: bool = False
+    no_cache_sync: bool = False
+    no_files_cache: bool = False
+    stdin_name: str = None
+    stdin_user: str = None
+    stdin_group: str = None
+    stdin_mode: str = None
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+@dataclass
+class ExtractOptional(OptionsBase):
+    """Extract command options
+
+    :param list: output verbose list of items (files, dirs, …)
+    :type list: bool
+    :param dry_run: do not actually change any files
+    :type dry_run: bool
+    :param numeric_owner: only obey numeric user and group identifiers
+    :type numeric_owner: bool
+    :param nobsdflags: do not extract/set bsdflags (e.g. NODUMP, IMMUTABLE)
+    :type nobsdflags: bool
+    :param noacls: do not extract/set ACLs
+    :type noacls: bool
+    :param noxattrs: do not extract/set xattrs
+    :type noxattrs: bool
+    :param stdout: write all extracted data to stdout
+    :type stdout: bool
+    :param sparse: create holes in output sparse file from all-zero chunks
+    :type sparse: bool
+    """
+
+    list: bool = False
+    dry_run: bool = False
+    numeric_owner: bool = False
+    nobsdflags: bool = False
+    noacls: bool = False
+    noxattrs: bool = False
+    stdout: bool = False
+    sparse: bool = False
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+@dataclass
+class CheckOptional(OptionsBase):
+    """Check command options
+
+    :param repository_only: only perform repository checks
+    :type repository_only: bool
+    :param archives_only: only perform archives checks
+    :type archives_only: bool
+    :param verify_data: perform cryptographic archive data integrity
+        verification conflicts with `repository_only`
+    :type verify_data: bool
+    :param repair: attempt to repair any inconsistencies found
+    :type repair: bool
+    :param save_space: work slower, but using less space
+    :type save_space: bool
+    """
+
+    repository_only: bool = False
+    archives_only: bool = False
+    verify_data: bool = False
+    repair: bool = False
+    save_space: bool = False
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+@dataclass
+class ListOptional(OptionsBase):
+    """List command options
+
+    :param short: only print file/directory names, nothing else
+    :type short: bool
+    :param format: specify format for file listing
+        borg default: “{mode} {user:6} {group:6} {size:8d} {mtime} {path}{extra}{NL}”
+    :type format: str
+    :param json: only valid for listing repository contents. Format output as JSON.
+        The form of `format` is ignored, but keys used in it are added to the JSON output.
+        Some keys are always present. Note: JSON can only represent text.
+        A “barchive” key is therefore not available.
+    :type json: bool
+    :param json_lines: only valid for listing archive contents. Format output as JSON lines.
+        The form of `format` is ignored, but keys used in it are added to the JSON output.
+        Some keys are always present. Note: JSON can only represent text.
+        A “bpath” key is therefore not available.
+    :type json_lines: bool
+    """
+
+    short: bool = False
+    format: str = None
+    json: bool = False
+    json_lines: bool = False
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+@dataclass
+class DiffOptional(OptionsBase):
+    """Diff command options
+
+    :param numeric_owner: only consider numeric user and group identifiers
+    :type numeric_owner: bool
+    :param same_chunker_params: override check of chunker parameters
+    :type same_chunker_params: bool
+    :param sort: srt the output lines by file path
+    :type sort: bool
+    :param json_lines: format output as JSON lines
+    :type json_lines: bool
+    """
+
+    numeric_owner: bool = False
+    same_chunker_params: bool = False
+    sort: bool = False
+    json_lines: bool = False
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self._log_deprecated("numeric_owner", "numeric_ids")
+
+
+@dataclass
+class DeleteOptional(OptionsBase):
+    """Delete command options
+
+    :param dry_run: do not change repository
+    :type dry_run: bool
+    :param stats: print statistics for the deleted archive
+    :type stats: bool
+    :param cache_only: delete only the local cache for the given repository
+    :type cache_only: bool
+    :param force: force deletion of corrupted archives
+    :type force: bool
+    :param save_space: work slower, but using less space
+    :type save_space: bool
+    """
+
+    dry_run: bool = False
+    stats: bool = False
+    cache_only: bool = False
+    force: bool = False
+    save_space: bool = False
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+# pylint: disable=too-many-instance-attributes
+@dataclass
+class PruneOptional(OptionsBase):
+    """Prune command options
+
+    :param dry_run: do not change repository
+    :type dry_run: bool
+    :param force: force pruning of corrupted archives
+    :type force: bool
+    :param stats: print statistics for the deleted archive
+    :type stats: bool
+    :param list: output verbose list of archives it keeps/prunes
+    :type list: bool
+    :param keep_within: keep all archives within this time interval
+    :type keep_within: str
+    :param keep_last: number of secondly archives to keep
+    :type keep_last: int
+    :param keep_secondly: number of secondly archives to keep
+    :type keep_secondly: int
+    :param keep_minutely: number of minutely archives to keep
+    :type keep_minutely: int
+    :param keep_hourly: number of hourly archives to keep
+    :type keep_hourly: int
+    :param keep_daily: number of daily archives to keep
+    :type keep_daily: int
+    :param keep_weekly: number of weekly archives to keep
+    :type keep_weekly: int
+    :param keep_monthly: number of monthly archives to keep
+    :type keep_monthly: int
+    :param keep_yearly: number of yearly archives to keep
+    :type keep_yearly: int
+    :param save_space: work slower, but using less space
+    :type save_space: bool
+    """
+
+    dry_run: bool = False
+    force: bool = False
+    stats: bool = False
+    list: bool = False
+    keep_within: str = None
+    keep_last: int = None
+    keep_secondly: int = None
+    keep_minutely: int = None
+    keep_hourly: int = None
+    keep_daily: int = None
+    keep_weekly: int = None
+    keep_monthly: int = None
+    keep_yearly: int = None
+    save_space: bool = False
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+@dataclass
+class InfoOptional(OptionsBase):
+    """Info command options
+
+    :param json: format output as JSON
+    :type json: bool
+    """
+
+    json: bool = False
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+# pylint: disable=invalid-name
+@dataclass
+class MountOptional(OptionsBase):
+    """Mount command options
+
+    :param foreground: stay in foreground, do not daemonize
+    :type foreground: bool
+    :param o: extra mount options
+    :type o: str
+    """
+
+    foreground: bool = False
+    o: str = None
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+@dataclass
+class KeyExportOptional(OptionsBase):
+    """Key Export command options
+
+    :param paper: create an export suitable for printing and later type-in
+    :type paper: bool
+    :param qr_html: create an html file suitable for printing and later type-in or qr scan
+    :type qr_html: bool
+    """
+
+    paper: bool = False
+    qr_html: bool = False
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+@dataclass
+class KeyImportOptional(OptionsBase):
+    """Key Import command options
+
+    :param paper: interactively import from a backup done with `paper`
+    :type paper: bool
+    """
+
+    paper: bool = False
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+@dataclass
+class UpgradeOptional(OptionsBase):
+    """Upgrade command options
+
+    :param dry_run: do not change repository
+    :type dry_run: bool
+    :param inplace: rewrite repository in place, with no chance of going
+        back to older versions of the repository
+    :type inplace: bool
+    :param force: force upgrade
+    :type force: bool
+    :param tam: enable manifest authentication (in key and cache)
+    :type tam: bool
+    :param disable_tam: disable manifest authentication (in key and cache)
+    :type disable_tam: bool
+    """
+
+    dry_run: bool = False
+    inplace: bool = False
+    force: bool = False
+    tam: bool = False
+    disable_tam: bool = False
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+@dataclass
+class ExportTarOptional(OptionsBase):
+    """Export Tar command options
+
+    :param tar_filter: filter program to pipe data through
+    :type tar_filter: str
+    :param list: output verbose list of items (files, dirs, …)
+    :type list: bool
+    """
+
+    tar_filter: str = None
+    list: bool = False
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+@dataclass
+class ServeOptional(OptionsBase):
+    """Serve command options
+
+    :param restrict_to_path: restrict repository access to PATH.
+        Can be specified multiple times to allow the client access to several directories.
+        Access to all sub-directories is granted implicitly;
+        PATH doesn’t need to directly point to a repository
+    :type restrict_to_path: str
+    :param restrict_to_repository: restrict repository access.
+        Only the repository located at PATH (no sub-directories are considered) is accessible.
+        Can be specified multiple times to allow the client access to several repositories.
+        Unlike `restrict_to_path` sub-directories are not accessible;
+        PATH needs to directly point at a repository location.
+        PATH may be an empty directory or the last element of PATH may not exist,
+        in which case the client may initialize a repository there
+    :type restrict_to_repository: str
+    :param append_only: only allow appending to repository segment files
+    :type append_only: bool
+    :param storage_quota: Override storage quota of the repository (e.g. 5G, 1.5T).
+        When a new repository is initialized, sets the storage quota on the new repository as well.
+        borg default: no quota
+    :type storage_quota: str
+    """
+
+    restrict_to_path: str = None
+    restrict_to_repository: str = None
+    append_only: bool = False
+    storage_quota: str = None
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+@dataclass
+class ConfigOptional(OptionsBase):
+    """Config command options
+
+    :param cache: get and set values from the repo cache
+    :type cache: bool
+    :param delete: delete the key from the config file
+    :type delete: bool
+    :param list: list the configuration of the repo
+    :type list: bool
+    """
+
+    cache: bool = False
+    delete: bool = False
+    list: bool = False
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+class CommandOptions:
+    """Optional Arguments for the different commands"""
+
+    optional_classes = {
+        "init": InitOptional,
+        "create": CreateOptional,
+        "extract": ExtractOptional,
+        "check": CheckOptional,
+        "list": ListOptional,
+        "diff": DiffOptional,
+        "delete": DeleteOptional,
+        "prune": PruneOptional,
+        "info": InfoOptional,
+        "mount": MountOptional,
+        "key_export": KeyExportOptional,
+        "key_import": KeyImportOptional,
+        "upgrade": UpgradeOptional,
+        "export_tar": ExportTarOptional,
+        "serve": ServeOptional,
+        "config": ConfigOptional,
+    }
+
+    def __init__(self, defaults: dict = None):
+        self.defaults = defaults or {}
+
+    @classmethod
+    def _get_optional(cls, command: str) -> OptionsBase:
+        try:
+            return cls.optional_classes[command]
+        except KeyError as e:
+            raise ValueError(
+                f"Command `{command}` does not have any optional arguments or does not exist."
+            ) from e
+
+    def to_list(self, command: str, values: dict) -> list:
+        """Return list with optional flags for command
+
+        :param command: command being called
+        :type command: str
+        :param values: dictionary with values for flags
+        :type values: dict
+        :return: list of optional values converted to args list format
+        :rtype: list
+        """
+
+        optionals = {**self.defaults.get(command, {}), **(values or {})}
+        return self._get_optional(command)(**optionals).parse()
