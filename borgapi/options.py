@@ -3,7 +3,7 @@
 import logging
 import re
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import List, Optional, Set, Union
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ class OptionsBase:
 
     # pylint: disable=no-member
     @classmethod
-    def _defaults(cls) -> set[str]:
+    def _defaults(cls) -> Set[str]:
         defaults = set()
         for field in cls.__dataclass_fields__.values():
             defaults.add(field.name)
