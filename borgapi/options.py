@@ -43,7 +43,7 @@ class OptionsBase:
         set_value = getattr(self, field)
         return set_value != default
 
-    def _log_deprecated(self, old_field: str, new_field: str) -> None:
+    def _log_deprecated(self, old_field: str, new_field: str = None) -> None:
         if self._field_set(old_field):
             if new_field:
                 logger.warning(
@@ -373,8 +373,12 @@ class CommandOptions:
 
     @dataclass
     class _InitOptional(OptionsBase):
+        # create an append-only mode repository
         append_only: bool = False
+        # set storage quota of the new repository (e.g. 5G, 1.5T)
+        # default: no quota
         storage_quota: str = None
+        # create the parent directories of the repository directory, if they are missing
         make_parent_dirs: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -384,16 +388,31 @@ class CommandOptions:
     # pylint: disable=too-many-instance-attributes
     @dataclass
     class _CreateOptional(OptionsBase):
+        # do not create a backup archive
         dry_run: bool = False
+        # print statistics for the created archive
         stats: bool = False
+        # output verbose list of items (files, dirs, …)
         list: bool = False
+        # only display items with the given status characters
         filter: str = None
+        # output stats as JSON. Implies `stats`
         json: bool = False
+        # experimental: do not synchronize the cache. Implies not using the files cache
         no_cache_sync: bool = False
+        # do not load/update the file metadata cache used to detect unchanged files
         no_files_cache: bool = False
+        # use NAME in archive for stdin data (
+        # default: “stdin”
         stdin_name: str = None
+        # set user USER in archive for stdin data
+        # default: "root"
         stdin_user: str = None
+        # set group GROUP in archive for stdin data
+        # default: "root"
         stdin_group: str = None
+        # set mode to M in archive for stdin data
+        # default: 0660
         stdin_mode: str = None
 
         # pylint: disable=useless-super-delegation
@@ -402,13 +421,21 @@ class CommandOptions:
 
     @dataclass
     class _ExtractOptional(OptionsBase):
+        # output verbose list of items (files, dirs, …)
         list: bool = False
+        # do not actually change any files
         dry_run: bool = False
+        # only obey numeric user and group identifiers
         numeric_owner: bool = False
+        # do not extract/set bsdflags (e.g. NODUMP, IMMUTABLE)
         nobsdflags: bool = False
+        # do not extract/set ACLs
         noacls: bool = False
+        # do not extract/set xattrs
         noxattrs: bool = False
+        # write all extracted data to stdout
         stdout: bool = False
+        # create holes in output sparse file from all-zero chunks
         sparse: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -417,10 +444,16 @@ class CommandOptions:
 
     @dataclass
     class _CheckOptional(OptionsBase):
+        # only perform repository checks
         repository_only: bool = False
+        # only perform archives checks
         archives_only: bool = False
+        # perform cryptographic archive data integrity verification
+        # conflicts with `repository_only`
         verify_data: bool = False
+        # attempt to repair any inconsistencies found
         repair: bool = False
+        # work slower, but using less space
         save_space: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -429,9 +462,20 @@ class CommandOptions:
 
     @dataclass
     class _ListOptional(OptionsBase):
+        # only print file/directory names, nothing else
         short: bool = False
+        # specify format for file listing
+        # default: “{mode} {user:6} {group:6} {size:8d} {mtime} {path}{extra}{NL}”
         format: str = None
+        # Only valid for listing repository contents. Format output as JSON.
+        # The form of `format` is ignored, but keys used in it are added to the JSON output.
+        # Some keys are always present.
+        # Note: JSON can only represent text. A “barchive” key is therefore not available.
         json: bool = False
+        # Only valid for listing archive contents. Format output as JSON lines.
+        # The form of `format` is ignored, but keys used in it are added to the JSON output.
+        # Some keys are always present.
+        # Note: JSON can only represent text. A “bpath” key is therefore not available.
         json_lines: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -440,9 +484,13 @@ class CommandOptions:
 
     @dataclass
     class _DiffOptional(OptionsBase):
+        # only consider numeric user and group identifiers
         numeric_owner: bool = False
+        # override check of chunker parameters
         same_chunker_params: bool = False
+        # srt the output lines by file path
         sort: bool = False
+        # format output as JSON lines
         json_lines: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -453,10 +501,15 @@ class CommandOptions:
 
     @dataclass
     class _DeleteOptional(OptionsBase):
+        # do not change repository
         dry_run: bool = False
+        # print statistics for the deleted archive
         stats: bool = False
+        # delete only the local cache for the given repository
         cache_only: bool = False
+        # force deletion of corrupted archives
         force: bool = False
+        # work slower, but using less space
         save_space: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -466,19 +519,33 @@ class CommandOptions:
     # pylint: disable=too-many-instance-attributes
     @dataclass
     class _PruneOptional(OptionsBase):
+        # do not change repository
         dry_run: bool = False
+        # force pruning of corrupted archives
         force: bool = False
+        # print statistics for the deleted archive
         stats: bool = False
+        # output verbose list of archives it keeps/prunes
         list: bool = False
+        # keep all archives within this time interval
         keep_within: str = None
+        # number of secondly archives to keep
         keep_last: int = None
+        # number of secondly archives to keep
         keep_secondly: int = None
+        # number of minutely archives to keep
         keep_minutely: int = None
+        # number of hourly archives to keep
         keep_hourly: int = None
+        # number of daily archives to keep
         keep_daily: int = None
+        # number of weekly archives to keep
         keep_weekly: int = None
+        # number of monthly archives to keep
         keep_monthly: int = None
+        # number of yearly archives to keep
         keep_yearly: int = None
+        # work slower, but using less space
         save_space: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -487,6 +554,7 @@ class CommandOptions:
 
     @dataclass
     class _InfoOptional(OptionsBase):
+        # format output as JSON
         json: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -496,7 +564,9 @@ class CommandOptions:
     # pylint: disable=invalid-name
     @dataclass
     class _MountOptional(OptionsBase):
+        # stay in foreground, do not daemonize
         foreground: bool = False
+        # extra mount options
         o: str = None
 
         # pylint: disable=useless-super-delegation
@@ -505,7 +575,9 @@ class CommandOptions:
 
     @dataclass
     class _KeyExportOptional(OptionsBase):
+        # create an export suitable for printing and later type-in
         paper: bool = False
+        # create an html file suitable for printing and later type-in or qr scan
         qr_html: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -514,6 +586,7 @@ class CommandOptions:
 
     @dataclass
     class _KeyImportOptional(OptionsBase):
+        # interactively import from a backup done with `paper`
         paper: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -522,10 +595,16 @@ class CommandOptions:
 
     @dataclass
     class _UpgradeOptional(OptionsBase):
+        # do not change repository
         dry_run: bool = False
+        # rewrite repository in place, with no chance of
+        # going back to older versions of the repository
         inplace: bool = False
+        # force upgrade
         force: bool = False
+        # enable manifest authentication (in key and cache)
         tam: bool = False
+        # disable manifest authentication (in key and cache)
         disable_tam: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -534,7 +613,9 @@ class CommandOptions:
 
     @dataclass
     class _ExportTarOptional(OptionsBase):
+        # filter program to pipe data through
         tar_filter: str = None
+        # output verbose list of items (files, dirs, …)
         list: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -543,9 +624,22 @@ class CommandOptions:
 
     @dataclass
     class _ServeOptional(OptionsBase):
+        # restrict repository access to PATH. Can be specified multiple times to allow the client
+        # access to several directories. Access to all sub-directories is granted implicitly;
+        # PATH doesn’t need to directly point to a repository
         restrict_to_path: str = None
+        # restrict repository access. Only the repository located at PATH (no sub-directories are
+        # considered) is accessible. Can be specified multiple times to allow the client access to
+        # several repositories. Unlike --restrict-to-path sub-directories are not accessible; PATH
+        # needs to directly point at a repository location. PATH may be an empty directory or the
+        # last element of PATH may not exist, in which case the client may initialize a
+        # repository there
         restrict_to_repository: str = None
+        # only allow appending to repository segment files
         append_only: bool = False
+        # Override storage quota of the repository (e.g. 5G, 1.5T). When a new repository is
+        # initialized, sets the storage quota on the new repository as well.
+        # default: no quota
         storage_quota: str = None
 
         # pylint: disable=useless-super-delegation
@@ -554,8 +648,11 @@ class CommandOptions:
 
     @dataclass
     class _ConfigOptional(OptionsBase):
+        # get and set values from the repo cache
         cache: bool = False
+        # delete the key from the config file
         delete: bool = False
+        # list the configuration of the repo
         list: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -604,5 +701,5 @@ class CommandOptions:
         :rtype: list
         """
 
-        optionals = self.defaults.get(command, {}) | (values or {})
+        optionals = {**{self.defaults.get(command, {})}, **(values or {})}
         return self._get_optional(command)(**optionals).parse()
