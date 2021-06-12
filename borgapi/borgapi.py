@@ -3,7 +3,7 @@
 import logging
 import os
 import sys
-from io import StringIO
+from io import BytesIO, StringIO, TextIOWrapper
 from json import decoder, loads
 from typing import Callable, List, Optional, Tuple, Union
 
@@ -26,10 +26,57 @@ from .options import (
     OptionsBase,
 )
 
+__all__ = ["BorgAPI"]
+
 StdoutCapture = Union[str, dict, None]
 StderrCapture = Union[str, dict, None]
 
 BorgRunOutput = Tuple[StdoutCapture, StderrCapture]
+
+
+class OutputCapture:
+    """Capture stdout and stderr by redirecting to inmemory streams
+
+    :param raw: Expecting raw bytes from stdout and stderr
+    :type raw: bool
+    """
+
+    def __init__(self, raw: bool = False):
+        self.raw = raw
+        if self.raw:
+            self.stdout = TextIOWrapper(BytesIO())
+        else:
+            self.stdout = StringIO()
+        self.stderr = StringIO()
+        self.stdout_original = sys.stdout
+        self.stderr_original = sys.stderr
+        sys.stdout = self.stdout
+        sys.stderr = self.stderr
+
+    # pylint: disable=no-member
+    def getvalues(self) -> Union[str, bytes]:
+        """Get the captured values from the redirected stdout and stderr
+
+        :return: Redirected values from stdout and stderr
+        :rtype: Union[str, bytes]
+        """
+        out = err = None
+        if self.raw:
+            out = self.stdout.buffer.getvalue()
+        else:
+            out = self.stdout.getvalue().strip()
+        err = self.stderr.getvalue().strip()
+        return out, err
+
+    def close(self):
+        """Close the underlying IO streams and reset stdout and stderr"""
+        try:
+            self.stdout.close()
+            self.stderr.close()
+        finally:
+            sys.stdout = self.stdout_original
+            sys.stderr = self.stderr_original
+
 
 # pylint: disable=too-many-public-methods
 class BorgAPI:
@@ -57,53 +104,46 @@ class BorgAPI:
         logging.getLogger("borgapi")
         self._logger = logging.getLogger(__name__)
 
-    # pylint: disable=used-before-assignment
-    def _run(self, arg_list: List, func: Callable) -> BorgRunOutput:
+    @staticmethod
+    def _loads_json_lines(string: str) -> Union[dict, str, None]:
+        result = None
+        try:
+            result = loads(string)
+        except decoder.JSONDecodeError:
+            clean = f'[{",".join(string.splitlines())}]'
+            try:
+                result = loads(clean)
+            except decoder.JSONDecodeError:
+                result = string or None
+        return result
+
+    # pylint: disable=no-member
+    def _run(
+        self,
+        arg_list: List,
+        func: Callable,
+        raw_bytes: bool = False,
+    ) -> BorgRunOutput:
         stdout_run = stderr_run = None
         self._logger.debug("%s: %s", func.__name__, arg_list)
         arg_list.insert(0, "borgapi")
         args = self.archiver.get_args(arg_list, os.environ.get("SSH_ORIGINAL_COMMAND"))
 
-        original_stderr = sys.stderr
-
-        sys.stdout = stdout_temp = StringIO()
-        sys.stderr = stderr_temp = StringIO()
+        capture = OutputCapture(raw_bytes)
         try:
             func(args)
         except Exception as e:
             self._logger.error(e)
             raise e
         else:
-            stdout_run = stdout_temp.getvalue().strip()
-            stderr_run = stderr_temp.getvalue().strip()
+            stdout_run, stderr_run = capture.getvalues()
         finally:
-            sys.stdout.close()
-            sys.stdout = self.original_stdout
-            sys.stderr = original_stderr
-            stdout_temp.close()
-            stderr_temp.close()
+            capture.close()
 
         if getattr(args, "json", False) or getattr(args, "json_lines", False):
-            stdout_json = stderr_json = None
-            if stdout_run:
-                try:
-                    stdout_json = loads(stdout_run)
-                except decoder.JSONDecodeError:
-                    clean_json = f'[{",".join(stdout_run.splitlines())}]'
-                    try:
-                        stdout_json = loads(clean_json)
-                    except decoder.JSONDecodeError:
-                        stdout_json = stdout_run or None
-            if stderr_run:
-                try:
-                    stderr_json = loads(stderr_run)
-                except decoder.JSONDecodeError:
-                    clean_json = f'[{",".join(stderr_run.splitlines())}]'
-                    try:
-                        stderr_json = loads(clean_json)
-                    except decoder.JSONDecodeError:
-                        stderr_json = stderr_run or None
-            return stdout_json, stderr_json
+            stdout_run = self._loads_json_lines(stdout_run)
+            stderr_run = self._loads_json_lines(stderr_run)
+
         return (stdout_run or None), (stderr_run or None)
 
     def _get_option_list(self, value: dict, options_class: OptionsBase) -> List:
@@ -252,7 +292,8 @@ class BorgAPI:
         arg_list.append(archive)
         arg_list.extend(paths)
 
-        return self._run(arg_list, self.archiver.do_extract)
+        raw_bytes = options.get("stdout", False)
+        return self._run(arg_list, self.archiver.do_extract, raw_bytes=raw_bytes)
 
     def check(
         self,
