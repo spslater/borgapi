@@ -257,15 +257,16 @@ class BorgapiTests(unittest.TestCase):
             "Warning not logged for bad path",
         )
 
-    @unittest.skip(
-        "BUG: Captured output uses StringIO which has no buffer like sys.stdout does"
-    )
     def test_extract_stdout(self):
         """Capture Extracted File"""
         api = self._init_and_create(self.repo, "1", self.data)
 
         out, _ = api.extract(f"{self.repo}::1", self.file_1, stdout=True)
-        self.assertEqual(out, self.file_1_text, "Extracted file text does not match")
+        self.assertEqual(
+            out,
+            bytes(self.file_1_text, "utf-8"),
+            "Extracted file text does not match",
+        )
 
     def test_check(self):
         """Check archive / repository integrity"""
