@@ -390,14 +390,11 @@ class CommandOptions:
         filter: str = None
         json: bool = False
         no_cache_sync: bool = False
+        no_files_cache: bool = False
         stdin_name: str = None
         stdin_user: str = None
         stdin_group: str = None
         stdin_mode: str = None
-        content_from_command: str = None
-        paths_from_stdin: str = None
-        paths_from_command: str = None
-        paths_delimiter: str = None
 
         # pylint: disable=useless-super-delegation
         def __init__(self, **kwargs):
@@ -408,9 +405,7 @@ class CommandOptions:
         list: bool = False
         dry_run: bool = False
         numeric_owner: bool = False
-        numeric_ids: bool = False
         nobsdflags: bool = False
-        noflags: bool = False
         noacls: bool = False
         noxattrs: bool = False
         stdout: bool = False
@@ -420,9 +415,6 @@ class CommandOptions:
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
 
-            self._log_deprecated("numeric_owner", "numeric_ids")
-            self._log_deprecated("nobsdflags", "noflags")
-
     @dataclass
     class _CheckOptional(OptionsBase):
         repository_only: bool = False
@@ -430,7 +422,6 @@ class CommandOptions:
         verify_data: bool = False
         repair: bool = False
         save_space: bool = False
-        max_duration: int = None
 
         # pylint: disable=useless-super-delegation
         def __init__(self, **kwargs):
@@ -438,10 +429,8 @@ class CommandOptions:
 
     @dataclass
     class _ListOptional(OptionsBase):
-        consider_checkpoints: bool = False
         short: bool = False
         format: str = None
-        list_format: str = None
         json: bool = False
         json_lines: bool = False
 
@@ -452,7 +441,6 @@ class CommandOptions:
     @dataclass
     class _DiffOptional(OptionsBase):
         numeric_owner: bool = False
-        numeric_ids: bool = False
         same_chunker_params: bool = False
         sort: bool = False
         json_lines: bool = False
@@ -466,11 +454,9 @@ class CommandOptions:
     @dataclass
     class _DeleteOptional(OptionsBase):
         dry_run: bool = False
-        list: bool = False
         stats: bool = False
         cache_only: bool = False
         force: bool = False
-        keep_security_info: bool = False
         save_space: bool = False
 
         # pylint: disable=useless-super-delegation
@@ -510,17 +496,12 @@ class CommandOptions:
     # pylint: disable=invalid-name
     @dataclass
     class _MountOptional(OptionsBase):
-        consider_checkpoints: bool = False
         foreground: bool = False
         o: str = None
-        numeric_owner: bool = False
-        numeric_ids: bool = False
 
         # pylint: disable=useless-super-delegation
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
-
-            self._log_deprecated("numeric_owner", "numeric_ids")
 
     @dataclass
     class _KeyExportOptional(OptionsBase):
