@@ -18,6 +18,7 @@ from .options import (
     ArchiveInput,
     ArchiveOutput,
     ArchivePattern,
+    CommandOptions,
     CommonOptions,
     ExclusionInput,
     ExclusionOptions,
@@ -44,7 +45,7 @@ class BorgAPI:
         log_json: bool = False,
     ):
         self.options = options or {}
-        self.defaults = defaults or {}
+        self.optionals = CommandOptions(defaults)
         self.archiver = borg.archiver.Archiver()
         self._previous_dotenv = []
         self._setup_logging(log_level, log_json)
@@ -109,15 +110,6 @@ class BorgAPI:
     def _get_option_list(self, value: dict, options_class: OptionsBase) -> List:
         args = {**self.options, **(value or {})}
         return options_class(**args).parse()
-
-    def _get_command_list(
-        self,
-        command: str,
-        values: dict,
-        options_class: OptionsBase,
-    ) -> List:
-        optionals = {**self.defaults.get(command, {}), **(values or {})}
-        return options_class(**optionals).parse()
 
     def set_environ(
         self,
@@ -208,7 +200,7 @@ class BorgAPI:
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("init")
         arg_list.extend(["--encryption", encryption])
-        arg_list.extend(self._get_command_list("init", options, _Optional))
+        arg_list.extend(self.optionals.to_list("init", options))
         arg_list.append(repository)
 
         return self._run(arg_list, self.archiver.do_init)
@@ -255,7 +247,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("create")
-        arg_list.extend(self._get_command_list("create", options, _Optional))
+        arg_list.extend(self.optionals.to_list("create", options))
         arg_list.extend(self._get_option_list(options, ExclusionInput))
         arg_list.extend(self._get_option_list(options, FilesystemOptions))
         arg_list.extend(self._get_option_list(options, ArchiveInput))
@@ -302,7 +294,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("extract")
-        arg_list.extend(self._get_command_list("extract", options, _Optional))
+        arg_list.extend(self.optionals.to_list("extract", options))
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(archive)
         arg_list.extend(paths)
@@ -341,7 +333,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("check")
-        arg_list.extend(self._get_command_list("check", options, _Optional))
+        arg_list.extend(self.optionals.to_list("check", options))
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.extend(repository_or_archive)
 
@@ -410,7 +402,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("list")
-        arg_list.extend(self._get_command_list("list", options, _Optional))
+        arg_list.extend(self.optionals.to_list("list", options))
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.extend(self._get_option_list(options, ExclusionOptions))
         arg_list.append(repository_or_archive)
@@ -455,7 +447,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("diff")
-        arg_list.extend(self._get_command_list("diff", options, _Optional))
+        arg_list.extend(self.optionals.to_list("diff", options))
         arg_list.extend(self._get_option_list(options, ExclusionOptions))
         arg_list.append(repo_archive_1)
         arg_list.append(archive_2)
@@ -498,7 +490,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("delete")
-        arg_list.extend(self._get_command_list("delete", options, _Optional))
+        arg_list.extend(self.optionals.to_list("delete", options))
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.append(repository_or_archive)
         arg_list.extend(archives)
@@ -548,7 +540,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("prune")
-        arg_list.extend(self._get_command_list("prune", options, _Optional))
+        arg_list.extend(self.optionals.to_list("prune", options))
         arg_list.extend(self._get_option_list(options, ArchivePattern))
         arg_list.append(repository)
 
@@ -582,7 +574,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("info")
-        arg_list.extend(self._get_command_list("info", options, _Optional))
+        arg_list.extend(self.optionals.to_list("info", options))
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.append(repository_or_archive)
 
@@ -624,7 +616,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("mount")
-        arg_list.extend(self._get_command_list("mount", options, _Optional))
+        arg_list.extend(self.optionals.to_list("mount", options))
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(repository_or_archive)
@@ -711,7 +703,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.extend(["key", "export"])
-        arg_list.extend(self._get_command_list("key_export", options, _Optional))
+        arg_list.extend(self.optionals.to_list("key_export", options))
         arg_list.append(repository)
         arg_list.append(path)
 
@@ -748,7 +740,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.extend(["key", "import"])
-        arg_list.extend(self._get_command_list("key_import", options, _Optional))
+        arg_list.extend(self.optionals.to_list("key_import", options))
         arg_list.append(repository)
         arg_list.append(path)
 
@@ -786,7 +778,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("upgrade")
-        arg_list.extend(self._get_command_list("upgrade", options, _Optional))
+        arg_list.extend(self.optionals.to_list("upgrade", options))
         arg_list.append(repository)
 
         return self._run(arg_list, self.archiver.do_upgrade)
@@ -826,7 +818,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("export-tar")
-        arg_list.extend(self._get_command_list("export_tar", options, _Optional))
+        arg_list.extend(self.optionals.to_list("export_tar", options))
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(archive)
         arg_list.append(file)
@@ -859,7 +851,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("serve")
-        arg_list.extend(self._get_command_list("serve", options, _Optional))
+        arg_list.extend(self.optionals.to_list("serve", options))
 
         return self._run(arg_list, self.archiver.do_serve)
 
@@ -896,7 +888,7 @@ class BorgAPI:
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("config")
-        arg_list.extend(self._get_command_list("config", options, _Optional))
+        arg_list.extend(self.optionals.to_list("config", options))
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(repository)
         out, err = [], []
