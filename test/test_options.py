@@ -17,18 +17,18 @@ class OptionsTests(unittest.TestCase):
             "Name conversion does not produce expected ouput",
         )
 
-    # pylint: disable=no-member
+    # pylint: disable=no-member,protected-access
     def test_defaults(self):
         """Defaults returns all the dataclass fields"""
-        common = CommonOptions.defaults()
-        exclusion = ExclusionOptions.defaults()
+        common = CommonOptions._defaults()
+        exclusion = ExclusionOptions._defaults()
         self.assertEqual(
-            len(common.keys()),
+            len(common),
             len(CommonOptions.__dataclass_fields__.keys()),
             "Number of Common Options does not match expected number",
         )
         self.assertEqual(
-            len(exclusion.keys()),
+            len(exclusion),
             len(ExclusionOptions.__dataclass_fields__.keys()),
             "Number of Exclusion Options does not match expected number",
         )
