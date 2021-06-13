@@ -129,6 +129,10 @@ class BorgAPI:
         arg_list.insert(0, "borgapi")
         args = self.archiver.get_args(arg_list, os.environ.get("SSH_ORIGINAL_COMMAND"))
 
+        prev_json = self.archiver.log_json
+        log_json = getattr(args, "log_json", prev_json)
+        self.archiver.log_json = log_json
+
         capture = OutputCapture(raw_bytes)
         try:
             func(args)
@@ -140,9 +144,15 @@ class BorgAPI:
         finally:
             capture.close()
 
-        if getattr(args, "json", False) or getattr(args, "json_lines", False):
+        if (
+            getattr(args, "json", False) or
+            getattr(args, "json_lines", False) or
+            getattr(args, "log_json", False)
+        ):
             stdout_run = self._loads_json_lines(stdout_run)
             stderr_run = self._loads_json_lines(stderr_run)
+
+        self.archiver.log_json = prev_json
 
         return (stdout_run or None), (stderr_run or None)
 

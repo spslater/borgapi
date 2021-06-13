@@ -78,7 +78,6 @@ class BorgapiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Initalize environment for borg use"""
-        load_dotenv("test/res/test_env")
 
         cls.temp = "test/temp"
         cls.data = join(cls.temp, "data")
@@ -87,7 +86,8 @@ class BorgapiTests(unittest.TestCase):
 
         cls._try_pass(FileNotFoundError, rmtree, cls.data)
         cls._try_pass(FileNotFoundError, rmtree, cls.repo)
-        cls._try_pass(FileNotFoundError, rmtree, cls.logs)
+        if not getenv("BORGAPI_TEST_KEEP_LOGS"):
+            cls._try_pass(FileNotFoundError, rmtree, cls.logs)
 
         cls.file_1 = join(cls.data, "file_1.txt")
         cls.file_1_text = "Hello World"
@@ -96,10 +96,16 @@ class BorgapiTests(unittest.TestCase):
         cls.file_3 = join(cls.data, "file_3.txt")
         cls.file_3_text = "New File Added"
 
+        cls._try_pass(FileExistsError, makedirs, cls.data)
+        cls._try_pass(FileExistsError, makedirs, cls.repo)
+        cls._try_pass(FileExistsError, makedirs, cls.logs)
+        load_dotenv("test/res/test_env")
+
     @classmethod
     def tearDownClass(cls):
         """Remove temp directory"""
-        cls._try_pass(FileNotFoundError, rmtree, cls.temp)
+        if not getenv("BORGAPI_TEST_KEEP_LOGS") and not getenv("BORGAPI_TEST_KEEP_TEMP"):
+            cls._try_pass(FileNotFoundError, rmtree, cls.temp)
 
     def setUp(self):
         """Setup files data"""
@@ -116,9 +122,11 @@ class BorgapiTests(unittest.TestCase):
 
     def tearDown(self):
         """Resets mess made"""
-        self._try_pass(FileNotFoundError, rmtree, self.data)
-        self._try_pass(FileNotFoundError, rmtree, self.repo)
-        self._try_pass(FileNotFoundError, rmtree, self.logs)
+        if not getenv("BORGAPI_TEST_KEEP_TEMP"):
+            self._try_pass(FileNotFoundError, rmtree, self.data)
+            self._try_pass(FileNotFoundError, rmtree, self.repo)
+            if not getenv("BORGAPI_TEST_KEEP_LOGS"):
+                self._try_pass(FileNotFoundError, rmtree, self.logs)
 
 
 class SingleTests(BorgapiTests):
