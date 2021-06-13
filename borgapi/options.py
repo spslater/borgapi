@@ -75,6 +75,13 @@ class OptionsBase:
             defaults.add(field.name)
         return defaults
 
+    @staticmethod
+    def _is_list(type_):
+        try:
+            return issubclass(type_, list)
+        except TypeError:
+            return issubclass(type_.__origin__, list)
+
     def parse(self) -> List[Optional[Union[str, int]]]:
         """Turn options into list for argv
 
@@ -90,11 +97,13 @@ class OptionsBase:
                 if value.type is bool:
                     if attr is not value.default:
                         args.append(flag)
-                elif value.type is list:
+                elif value.type is str or value.type is int:
+                    args.extend([flag, attr])
+                elif self._is_list(value.type):
                     for val in attr:
                         args.extend([flag, val])
                 else:
-                    args.extend([flag, attr])
+                    raise TypeError(f'Unrecognized flag type for "{key}": {value.type}')
         return args
 
 
