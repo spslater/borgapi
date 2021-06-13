@@ -33,7 +33,6 @@ class OptionsTests(unittest.TestCase):
             "Number of Exclusion Options does not match expected number",
         )
 
-    @unittest.skip("BUG: Arg list generator not splitting list vals correctly")
     def test_parse(self):
         """Parsing produces formatted args list from class instance"""
         expected_args = ["--warning", "--progress", "--log-json"]
