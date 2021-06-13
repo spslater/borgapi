@@ -559,6 +559,10 @@ class BorgapiTests(unittest.TestCase):
     def test_lock(self):
         """Don't know what locking would be used for, so don't know how to test"""
 
+    @unittest.skipIf(
+        getenv("BORGAPI_TEST_BENCHMARK_SKIP"),
+        "Gotta go fast (only use for quick testing, not release)",
+    )
     def test_benchmark_crud(self):
         """Benchmark CRUD operations"""
         api = self._init_and_create(self.repo, "1", self.data)
