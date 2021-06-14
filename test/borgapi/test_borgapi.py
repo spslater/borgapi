@@ -200,3 +200,19 @@ class SingleTests(BorgapiTests):
     @unittest.skip("WIP: Don't know what locking would be used for")
     def test_lock(self):
         """Don't know what locking would be used for, so don't know how to test"""
+
+    @unittest.skipIf(
+        getenv("BORGAPI_TEST_BENCHMARK_SKIP"),
+        "Gotta go fast (only use for quick testing, not release)",
+    )
+    def test_benchmark_crud(self):
+        """Benchmark CRUD operations"""
+        api = self._init_and_create(self.repo, "1", self.data)
+
+        benchmark_dir = join(self.temp, "benchmark")
+        self._make_clean(benchmark_dir)
+        out, _ = api.benchmark_crud(self.repo, benchmark_dir)
+
+        self.assertTrue(out, "Unexpected (ie None) output from benchmark")
+
+        rmtree(benchmark_dir)
