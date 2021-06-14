@@ -682,7 +682,7 @@ class BorgAPI:
         arg_list.append(file)
         arg_list.extend(paths)
 
-        return self._run(arg_list, self.archiver.do_export_tar)
+        return self._run(arg_list, self.archiver.do_export_tar, raw_bytes=(file=="-"))
 
     def serve(
         self,
