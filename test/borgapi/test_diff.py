@@ -11,9 +11,9 @@ class DiffTests(BorgapiTests):
         with open(self.file_3, "w") as fp:
             fp.write(self.file_3_text)
         api.create(f"{self.repo}::2", self.data)
-        out, _ = api.diff(f"{self.repo}::1", "2", json_lines=True)
-        modify_path = out["path"]
-        modify_type = out["changes"][0]["type"]
+        output = api.diff(f"{self.repo}::1", "2", json_lines=True)
+        modify_path = output["diff"]["path"]
+        modify_type = output["diff"]["changes"][0]["type"]
         self.assertEqual(modify_path, self.file_3, "Unexpected new filename")
         self.assertEqual(modify_type, "added", "New file not listed as added")
 
@@ -25,8 +25,8 @@ class DiffTests(BorgapiTests):
         with open(self.file_2, "w") as fp:
             fp.write(self.file_3_text)
         api.create(f"{self.repo}::2", self.data)
-        out, _ = api.diff(f"{self.repo}::1", "2", json_lines=True, sort=True)
-        modify_path = out[0]["path"]
-        modify_type = out[0]["changes"][0]["type"]
+        output = api.diff(f"{self.repo}::1", "2", json_lines=True, sort=True)
+        modify_path = output["diff"][0]["path"]
+        modify_type = output["diff"][0]["changes"][0]["type"]
         self.assertEqual(modify_path, self.file_2, "Unexpected file changed")
         self.assertEqual(modify_type, "modified", "Unexpected change type")

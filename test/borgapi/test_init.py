@@ -52,8 +52,8 @@ class InitTests(BorgapiTests):
             msg="Repository made with missing directories",
         )
         api.init(deep_repo, make_parent_dirs=True)
-        out, _ = api.list(deep_repo, json=True)
-        self.assertKeyExists("repository", out, "Repository not initalzied")
+        output = api.list(deep_repo, json=True)
+        self.assertKeyExists("repository", output["list"], "Repository not initalzied")
 
     def test_init_storage_quota(self):
         """Limit the size of the repo"""
@@ -73,8 +73,8 @@ class InitTests(BorgapiTests):
         """Repo in append only mode"""
         api = BorgAPI()
         api.init(self.repo, append_only=True)
-        out, _ = api.config(self.repo, list=True)
-        config = self.read_config(out)
+        output = api.config(self.repo, list=True)
+        config = self.read_config(output["list"])
         self.assertEqual(
             config["repository"]["append_only"],
             "1",

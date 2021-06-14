@@ -9,10 +9,10 @@ class ListTests(BorgapiTests):
         """List repo archvies and archive files"""
         api = self._init_and_create(self.repo, "1", self.data)
 
-        out, _ = api.list(self.repo, json=True)
-        num_archvies = len(out["archives"])
+        output = api.list(self.repo, json=True)
+        num_archvies = len(output["list"]["archives"])
         self.assertEqual(num_archvies, 1, "Unexpected number of archives returned")
 
-        out, _ = api.list(f"{self.repo}::1", json_lines=True)
-        num_files = len(out)
+        output = api.list(f"{self.repo}::1", json_lines=True)
+        num_files = len(output["list"])
         self.assertEqual(num_files, 3, "Unexpected number of files returned")

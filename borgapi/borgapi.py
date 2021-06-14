@@ -5,7 +5,7 @@ import os
 import sys
 from io import BytesIO, StringIO, TextIOWrapper
 from json import decoder, loads
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import borg.archive
 import borg.archiver
@@ -28,10 +28,7 @@ from .options import (
 
 __all__ = ["BorgAPI"]
 
-StdoutCapture = Union[str, dict, None]
-StderrCapture = Union[str, dict, None]
-
-BorgRunOutput = Tuple[StdoutCapture, StderrCapture]
+BorgRunOutput = Dict[str, Union[str, list, dict, None]]
 
 
 class OutputCapture:
@@ -43,15 +40,38 @@ class OutputCapture:
 
     def __init__(self, raw: bool = False):
         self.raw = raw
-        if self.raw:
-            self.stdout = TextIOWrapper(BytesIO())
-        else:
-            self.stdout = StringIO()
-        self.stderr = StringIO()
+        self._init_stdout(raw)
+        self._init_stderr()
+
+        self.formatter = logging.Formatter("%(message)s")
+        self._init_list_capture()
+        self._init_stats_capture()
+
+    def _init_stdout(self, raw: bool):
+        self.stdout = TextIOWrapper(BytesIO()) if raw else StringIO()
         self.stdout_original = sys.stdout
-        self.stderr_original = sys.stderr
         sys.stdout = self.stdout
+
+    def _init_stderr(self):
+        self.stderr = StringIO()
+        self.stderr_original = sys.stderr
         sys.stderr = self.stderr
+
+    def _init_list_capture(self):
+        self.list_handler = logging.StreamHandler(StringIO())
+        self.list_handler.setFormatter(self.formatter)
+        self.list_handler.setLevel("INFO")
+
+        self.list_logger = logging.getLogger("borg.output.list")
+        self.list_logger.addHandler(self.list_handler)
+
+    def _init_stats_capture(self):
+        self.stats_handler = logging.StreamHandler(StringIO())
+        self.stats_handler.setFormatter(self.formatter)
+        self.stats_handler.setLevel("INFO")
+
+        self.stats_logger = logging.getLogger("borg.output.stats")
+        self.stats_logger.addHandler(self.stats_handler)
 
     # pylint: disable=no-member
     def getvalues(self) -> Union[str, bytes]:
@@ -60,19 +80,32 @@ class OutputCapture:
         :return: Redirected values from stdout and stderr
         :rtype: Union[str, bytes]
         """
-        out = err = None
+        stdout_value = stderr_value = None
         if self.raw:
-            out = self.stdout.buffer.getvalue()
+            stdout_value = self.stdout.buffer.getvalue()
         else:
-            out = self.stdout.getvalue().strip()
-        err = self.stderr.getvalue().strip()
-        return out, err
+            stdout_value = self.stdout.getvalue().strip()
+        stderr_value = self.stderr.getvalue().strip()
+
+        list_value = self.list_handler.stream.getvalue()
+        stats_value = self.stats_handler.stream.getvalue()
+
+        return {
+            "stdout": stdout_value,
+            "stderr": stderr_value,
+            "list": list_value,
+            "stats": stats_value,
+        }
 
     def close(self):
         """Close the underlying IO streams and reset stdout and stderr"""
         try:
             self.stdout.close()
             self.stderr.close()
+            self.list_handler.stream.close()
+            self.list_logger.removeHandler(self.list_handler)
+            self.stats_handler.stream.close()
+            self.stats_logger.removeHandler(self.stats_handler)
         finally:
             sys.stdout = self.stdout_original
             sys.stderr = self.stderr_original
@@ -117,6 +150,14 @@ class BorgAPI:
                 result = string or None
         return result
 
+    @staticmethod
+    def _build_result(*results: Tuple[str, Union[str, list, dict, None]]) -> dict:
+        result = {}
+        for name, value in results:
+            if value:
+                result[name] = value
+        return result
+
     # pylint: disable=no-member
     def _run(
         self,
@@ -124,7 +165,6 @@ class BorgAPI:
         func: Callable,
         raw_bytes: bool = False,
     ) -> BorgRunOutput:
-        stdout_run = stderr_run = None
         self._logger.debug("%s: %s", func.__name__, arg_list)
         arg_list.insert(0, "borgapi")
         args = self.archiver.get_args(arg_list, os.environ.get("SSH_ORIGINAL_COMMAND"))
@@ -140,25 +180,21 @@ class BorgAPI:
             self._logger.error(e)
             raise e
         else:
-            stdout_run, stderr_run = capture.getvalues()
+            capture_result = capture.getvalues()
         finally:
             capture.close()
 
-        if (
-            getattr(args, "json", False) or
-            getattr(args, "json_lines", False) or
-            getattr(args, "log_json", False)
-        ):
-            stdout_run = self._loads_json_lines(stdout_run)
-            stderr_run = self._loads_json_lines(stderr_run)
-
         self.archiver.log_json = prev_json
 
-        return (stdout_run or None), (stderr_run or None)
+        return capture_result
+
+    def _get_option(self, value: dict, options_class: OptionsBase) -> OptionsBase:
+        args = {**self.options, **(value or {})}
+        return options_class(**args)
 
     def _get_option_list(self, value: dict, options_class: OptionsBase) -> List:
-        args = {**self.options, **(value or {})}
-        return options_class(**args).parse()
+        option = self._get_option(value, options_class)
+        return option.parse()
 
     def set_environ(
         self,
@@ -263,17 +299,37 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
+        common_options = self._get_option(options, CommonOptions)
+        create_options = self.optionals.get("create", options)
+
         arg_list = []
-        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.extend(common_options.parse())
         arg_list.append("create")
-        arg_list.extend(self.optionals.to_list("create", options))
+        arg_list.extend(create_options.parse())
         arg_list.extend(self._get_option_list(options, ExclusionInput))
         arg_list.extend(self._get_option_list(options, FilesystemOptions))
         arg_list.extend(self._get_option_list(options, ArchiveInput))
         arg_list.append(archive)
         arg_list.extend(paths)
 
-        return self._run(arg_list, self.archiver.do_create)
+        output = self._run(arg_list, self.archiver.do_create)
+
+        stats_result = list_result = None
+
+        if create_options.stats and not create_options.json:
+            stats_result = output["stats"]
+        elif create_options.json:
+            stats_result = self._loads_json_lines(output["stdout"])
+
+        if create_options.list and not common_options.log_json:
+            list_result = output["list"]
+        elif create_options.list and common_options.log_json:
+            list_result = self._loads_json_lines(output["stderr"])
+
+        return self._build_result(
+            ("stats", stats_result),
+            ("list", list_result),
+        )
 
     def extract(
         self,
@@ -294,16 +350,33 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
+        common_options = self._get_option(options, CommonOptions)
+        extract_options = self.optionals.get("extract", options)
+
         arg_list = []
-        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.extend(common_options.parse())
         arg_list.append("extract")
-        arg_list.extend(self.optionals.to_list("extract", options))
+        arg_list.extend(extract_options.parse())
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(archive)
         arg_list.extend(paths)
 
         raw_bytes = options.get("stdout", False)
-        return self._run(arg_list, self.archiver.do_extract, raw_bytes=raw_bytes)
+        output = self._run(arg_list, self.archiver.do_extract, raw_bytes=raw_bytes)
+
+        list_result = extract_result = None
+        if extract_options.list and not common_options.log_json:
+            list_result = output["list"] or None
+        elif extract_options.list and common_options.log_json:
+            list_result = self._loads_json_lines(output["list"]) or None
+
+        if extract_options.stdout:
+            extract_result = output["stdout"]
+
+        return self._build_result(
+            ("list", list_result),
+            ("extract", extract_result)
+        )
 
     def check(
         self,
@@ -377,16 +450,28 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
+        common_options = self._get_option(options, CommonOptions)
+        list_options = self.optionals.get("list", options)
+
         arg_list = []
-        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.extend(common_options.parse())
         arg_list.append("list")
-        arg_list.extend(self.optionals.to_list("list", options))
+        arg_list.extend(list_options.parse())
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.extend(self._get_option_list(options, ExclusionOptions))
         arg_list.append(repository_or_archive)
         arg_list.extend(paths)
 
-        return self._run(arg_list, self.archiver.do_list)
+        output = self._run(arg_list, self.archiver.do_list)
+
+        list_result = None
+
+        if common_options.log_json or list_options.json or list_options.json_lines:
+            list_result = self._loads_json_lines(output["stdout"])
+        else:
+            list_result = output["stdout"]
+
+        return self._build_result(("list", list_result))
 
     def diff(
         self,
@@ -410,16 +495,27 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
+        common_options = self._get_option(options, CommonOptions)
+        diff_options = self.optionals.get("diff", options)
+
         arg_list = []
-        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.extend(common_options.parse())
         arg_list.append("diff")
-        arg_list.extend(self.optionals.to_list("diff", options))
+        arg_list.extend(diff_options.parse())
         arg_list.extend(self._get_option_list(options, ExclusionOptions))
         arg_list.append(repo_archive_1)
         arg_list.append(archive_2)
         arg_list.extend(paths)
 
-        return self._run(arg_list, self.archiver.do_diff)
+        output = self._run(arg_list, self.archiver.do_diff)
+
+        diff_result = None
+        if common_options.log_json or diff_options.json_lines:
+            diff_result = self._loads_json_lines(output["stdout"])
+        else:
+            diff_result = output["stdout"]
+
+        return self._build_result(("diff", diff_result))
 
     def delete(
         self,
@@ -440,15 +536,26 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
+        common_options = self._get_option(options, CommonOptions)
+        delete_options = self.optionals.get("delete", options)
+
         arg_list = []
-        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.extend(common_options.parse())
         arg_list.append("delete")
-        arg_list.extend(self.optionals.to_list("delete", options))
+        arg_list.extend(delete_options.parse())
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.append(repository_or_archive)
         arg_list.extend(archives)
 
-        return self._run(arg_list, self.archiver.do_delete)
+        output = self._run(arg_list, self.archiver.do_delete)
+
+        stats_result = None
+        if delete_options.stats and common_options.log_json:
+            stats_result = self._loads_json_lines(output["stats"])
+        elif delete_options.stats:
+            stats_result = output["stats"]
+
+        return self._build_result(("stats", stats_result))
 
     def prune(
         self,
@@ -467,14 +574,32 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
+        common_options = self._get_option(options, CommonOptions)
+        prune_options = self.optionals.get("prune", options)
+
         arg_list = []
-        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.extend(common_options.parse())
         arg_list.append("prune")
-        arg_list.extend(self.optionals.to_list("prune", options))
+        arg_list.extend(prune_options.parse())
         arg_list.extend(self._get_option_list(options, ArchivePattern))
         arg_list.append(repository)
 
-        return self._run(arg_list, self.archiver.do_prune)
+        output = self._run(arg_list, self.archiver.do_prune)
+
+        list_result = stats_result = None
+        if prune_options.list and not common_options.log_json:
+            list_result = output["list"]
+        elif prune_options.list and common_options.log_json:
+            list_result = self._loads_json_lines(output["list"])
+        if prune_options.stats and not common_options.log_json:
+            stats_result = output["stats"]
+        elif prune_options.stats and common_options.log_json:
+            stats_result = self._loads_json_lines(output["stats"])
+
+        return self._build_result(
+            ("stats", stats_result),
+            ("list", list_result),
+        )
 
     def info(
         self,
@@ -492,14 +617,25 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
+        common_options = self._get_option(options, CommonOptions)
+        info_options = self.optionals.get("info", options)
+
         arg_list = []
-        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.extend(common_options.parse())
         arg_list.append("info")
-        arg_list.extend(self.optionals.to_list("info", options))
+        arg_list.extend(info_options.parse())
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.append(repository_or_archive)
 
-        return self._run(arg_list, self.archiver.do_info)
+        output = self._run(arg_list, self.archiver.do_info)
+
+        info_result = None
+        if info_options.json:
+            info_result = self._loads_json_lines(output["stdout"])
+        else:
+            info_result = output["stdout"]
+
+        return self._build_result(("info", info_result))
 
     def mount(
         self,
@@ -683,16 +819,30 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
+        common_options = self._get_option(options, CommonOptions)
+        export_tar_options = self.optionals.get("export_tar", options)
+
         arg_list = []
-        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.extend(common_options.parse())
         arg_list.append("export-tar")
-        arg_list.extend(self.optionals.to_list("export_tar", options))
+        arg_list.extend(export_tar_options.parse())
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(archive)
         arg_list.append(file)
         arg_list.extend(paths)
 
-        return self._run(arg_list, self.archiver.do_export_tar, raw_bytes=(file=="-"))
+        output = self._run(arg_list, self.archiver.do_export_tar, raw_bytes=(file == "-"))
+
+        list_result = export_result = None
+        if export_tar_options.list:
+            list_result = output["list"]
+        if file == "-":
+            export_result = output["stdout"]
+
+        return self._build_result(
+            ("list", list_result),
+            ("tar", export_result),
+        )
 
     def serve(
         self,
@@ -730,15 +880,22 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
+        common_options = self._get_option(options, CommonOptions)
+        config_options = self.optionals.get("config", options)
+
         arg_list = []
-        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.extend(common_options.parse())
         arg_list.append("config")
-        arg_list.extend(self.optionals.to_list("config", options))
+        arg_list.extend(config_options.parse())
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(repository)
-        out, err = [], []
+
+        change_result = []
+        list_result = None
         if not changes:
-            return self._run(arg_list, self.archiver.do_config)
+            output = self._run(arg_list, self.archiver.do_config)
+            if config_options.list:
+                list_result = output["stdout"]
 
         for change in changes:
             if isinstance(change, tuple):
@@ -746,10 +903,13 @@ class BorgAPI:
                 self._run(change, self.archiver.do_config)
             else:
                 change = arg_list + [change]
-                temp_out, temp_err = self._run(change, self.archiver.do_config)
-                out.append(temp_out)
-                err.append(temp_err)
-        return out, err
+                output = self._run(change, self.archiver.do_config)
+                change_result.append(output["stdout"])
+
+        return self._build_result(
+            ("changes", change_result),
+            ("list", list_result),
+        )
 
     def with_lock(
         self,
@@ -822,10 +982,16 @@ class BorgAPI:
             dict if json flag used, str otherwise
         :rtype: BorgRunOutput
         """
+        common_options = self._get_option(options, CommonOptions)
+
         arg_list = []
-        arg_list.extend(self._get_option_list(options, CommonOptions))
+        arg_list.extend(common_options.parse())
         arg_list.extend(["benchmark", "crud"])
         arg_list.append(repository)
         arg_list.append(path)
 
-        return self._run(arg_list, self.archiver.do_benchmark_crud)
+        output = self._run(arg_list, self.archiver.do_benchmark_crud)
+
+        benchmark_result = output["stdout"]
+
+        return self._build_result(("benchmark", benchmark_result))

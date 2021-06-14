@@ -51,14 +51,20 @@ class KeyTests(BorgapiTests):
         api = self._init_and_create(self.repo, "1", self.data)
 
         api.key_export(self.repo, self.key_file)
-        self.assertFileExists(self.key_file, "Repo key not exported to expected location")
+        self.assertFileExists(
+            self.key_file,
+            "Repo key not exported to expected location",
+        )
 
     def test_key_export_paper(self):
         """Export repo excryption key"""
         api = self._init_and_create(self.repo, "1", self.data)
 
         api.key_export(self.repo, self.key_file, paper=True)
-        self.assertFileExists(self.key_file, "Repo key not exported to expected location")
+        self.assertFileExists(
+            self.key_file,
+            "Repo key not exported to expected location",
+        )
 
     def test_key_import(self):
         """Import original key to repository"""

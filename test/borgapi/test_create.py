@@ -13,10 +13,10 @@ class CreateTests(BorgapiTests):
     def test_create(self):
         """Create new archive"""
         api = self._init_and_create(self.repo, "1", self.data)
-        out, _ = api.list(self.repo, json=True)
-        num_archives = len(out["archives"])
+        output = api.list(self.repo, json=True)
+        num_archives = len(output["list"]["archives"])
         self.assertEqual(num_archives, 1, "Archive not saved")
-        archive_name = out["archives"][0]["name"]
+        archive_name = output["list"]["archives"][0]["name"]
         self.assertEqual(archive_name, "1", "Archive name does not match set name")
 
     def test_create_second(self):
@@ -27,12 +27,12 @@ class CreateTests(BorgapiTests):
             fp.write("New Data")
         api.create(f"{self.repo}::2", self.data)
 
-        out, _ = api.list(self.repo, json=True)
-        num_archives = len(out["archives"])
+        output = api.list(self.repo, json=True)
+        num_archives = len(output["list"]["archives"])
         self.assertEqual(num_archives, 2, "Multiple archives not saved")
-        archive_1_name = out["archives"][0]["name"]
+        archive_1_name = output["list"]["archives"][0]["name"]
         self.assertEqual(archive_1_name, "1", "Archive name does not match set name")
-        archive_2_name = out["archives"][1]["name"]
+        archive_2_name = output["list"]["archives"][1]["name"]
         self.assertEqual(archive_2_name, "2", "Archive name does not match set name")
 
     def test_create_already_exists(self):
@@ -55,7 +55,7 @@ class CreateTests(BorgapiTests):
 
         archive = f"{self.repo}::2"
         name = "file_3_stdin.txt"
-        mode = "0777" # "-rwxrwxrwx"
+        mode = "0777"  # "-rwxrwxrwx"
 
         try:
             api.create(
@@ -68,6 +68,6 @@ class CreateTests(BorgapiTests):
             temp_stdin.close()
             sys.stdin = sys.__stdin__
 
-        out, _ = api.list(archive, json_lines=True)
-        self.assertEqual(out["path"], name, "Unexpected file name")
-        self.assertEqual(out["mode"], "-rwxrwxrwx", "Unexpected file mode")
+        output = api.list(archive, json_lines=True)
+        self.assertEqual(output["list"]["path"], name, "Unexpected file name")
+        self.assertEqual(output["list"]["mode"], "-rwxrwxrwx", "Unexpected file mode")

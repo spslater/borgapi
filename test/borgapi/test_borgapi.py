@@ -42,6 +42,38 @@ class BorgapiTests(unittest.TestCase):
             raise AssertionError(msg or f"{key} exists in dictionary")
 
     @staticmethod
+    def assertType(obj, type_, msg=None):
+        """Assert an object is an instance of type"""
+        if not isinstance(obj, type_):
+            raise AssertionError(msg or f"{obj} is not type {type_}, it is {type(obj)}")
+
+    @staticmethod
+    def assertAnyType(obj, *types, msg=None):
+        """Assert an object is an instance of type"""
+        if not any([isinstance(obj, t) for t in types]):
+            raise AssertionError(
+                msg or f"{obj} is not any of {types}; it is {type(obj)}"
+            )
+
+    @staticmethod
+    def assertSubclass(obj, class_, msg=None):
+        """Assert an object is an subclass of class"""
+        if not issubclass(obj, class_):
+            raise AssertionError(msg or f"{obj} is not a subtype of {class_}")
+
+    @staticmethod
+    def assertNone(obj, msg=None):
+        """Assert an object is None"""
+        if obj is not None:
+            raise AssertionError(msg or f"Value is not None: {obj}")
+
+    @staticmethod
+    def assertNotNone(obj, msg=None):
+        """Assert an object is None"""
+        if obj is None:
+            raise AssertionError(msg or "Value is None")
+
+    @staticmethod
     def _try_pass(error, func, *args, **kwargs):
         try:
             func(*args, **kwargs)
@@ -104,7 +136,9 @@ class BorgapiTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         """Remove temp directory"""
-        if not getenv("BORGAPI_TEST_KEEP_LOGS") and not getenv("BORGAPI_TEST_KEEP_TEMP"):
+        if not getenv("BORGAPI_TEST_KEEP_LOGS") and not getenv(
+            "BORGAPI_TEST_KEEP_TEMP"
+        ):
             cls._try_pass(FileNotFoundError, rmtree, cls.temp)
 
     def setUp(self):
@@ -179,6 +213,7 @@ class SingleTests(BorgapiTests):
         got = getenv(key)
         self.assertFalse(got)
 
+    # pylint: disable=invalid-sequence-index
     def test_prune(self):
         """Prune archives"""
         api = self._init_and_create(self.repo, "1", self.data)
@@ -201,8 +236,8 @@ class SingleTests(BorgapiTests):
         sleep(1)
 
         api.prune(self.repo, keep_last="3")
-        out, _ = api.list(self.repo, json=True)
-        num_archives = len(out["archives"])
+        output = api.list(self.repo, json=True)
+        num_archives = len(output["list"]["archives"])
         self.assertEqual(num_archives, 3, "Unexpected number of archvies pruned")
 
     @unittest.skip("WIP: Don't know what locking would be used for")
@@ -219,8 +254,8 @@ class SingleTests(BorgapiTests):
 
         benchmark_dir = join(self.temp, "benchmark")
         self._make_clean(benchmark_dir)
-        out, _ = api.benchmark_crud(self.repo, benchmark_dir)
+        output = api.benchmark_crud(self.repo, benchmark_dir)
 
-        self.assertTrue(out, "Unexpected (ie None) output from benchmark")
+        self.assertTrue(output["result"], "Unexpected (ie None) output from benchmark")
 
         rmtree(benchmark_dir)

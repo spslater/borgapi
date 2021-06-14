@@ -873,16 +873,32 @@ class CommandOptions:
                 f"Command `{command}` does not have any optional arguments or does not exist."
             ) from e
 
-    def to_list(self, command: str, values: dict) -> list:
-        """Return list with optional flags for command
+    def get(self, command: str, values: dict) -> OptionsBase:
+        """Return OptionsBase with flags set for `command`
 
         :param command: command being called
         :type command: str
         :param values: dictionary with values for flags
         :type values: dict
-        :return: list of optional values converted to args list format
-        :rtype: list
+        :return: instance of command dataclass
+        :rtype: OptionsBase
         """
 
         optionals = {**self.defaults.get(command, {}), **(values or {})}
-        return self._get_optional(command)(**optionals).parse()
+        return self._get_optional(command)(**optionals)
+
+    def to_list(self, command: str, values: dict) -> list:
+        return self.get(command, values).parse()
+
+    #     """Return list with optional flags for command
+
+    #     :param command: command being called
+    #     :type command: str
+    #     :param values: dictionary with values for flags
+    #     :type values: dict
+    #     :return: list of optional values converted to args list format
+    #     :rtype: list
+    #     """
+
+    #     optional = self.get_command(command, values)
+    #     return optional.parse()

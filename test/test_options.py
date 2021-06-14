@@ -4,6 +4,7 @@ import unittest
 from borgapi import CommonOptions, ExclusionOptions
 from borgapi.options import OptionsBase
 
+
 class OptionsTests(unittest.TestCase):
     """Tests for the Options Dataclasses"""
 

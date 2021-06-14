@@ -1,10 +1,9 @@
 """Test output stuff"""
-import logging
 import io
+import logging
 import unittest
 from os import getenv, remove
 from os.path import join
-from shutil import rmtree
 from time import sleep
 
 from borgapi import BorgAPI
@@ -58,11 +57,11 @@ class OutputTests(BorgapiTests):
         self.api.init(self.repo)
 
     @staticmethod
-    def display(header, *outputs):
+    def display(header, output):
         """display captured output"""
         if getenv("BORGAPI_TEST_OUTPUT_DISPLAY"):
             print(header)
-            for name, value in outputs:
+            for name, value in output.items():
                 print(f"~~~~~~~~~~ {name} ~~~~~~~~~~")
                 print(value)
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
@@ -81,255 +80,89 @@ class OutputTests(BorgapiTests):
 
     def test_create_1(self):
         """Stats log, List log"""
-        out, err = self.api.create(self.archive, self.data, stats=True, list=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "create 1",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertFalse(out)
-        self.assertFalse(err)
-        self.assertTrue(list_capture) # list, string
-        self.assertTrue(stats_capture) # stats, string
+        output = self.api.create(self.archive, self.data, stats=True, list=True)
+        self.display("create 1", output)
+        self.assertType(output["stats"], str)
+        self.assertType(output["list"], str)
 
     def test_create_2(self):
         """Stats json, List log"""
-        out, err = self.api.create(self.archive, self.data, json=True, list=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "create 2",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # stats, json
-        self.assertFalse(err)
-        self.assertTrue(list_capture) # list, string
-        self.assertFalse(stats_capture)
+        output = self.api.create(self.archive, self.data, json=True, list=True)
+        self.display("create 2", output)
+        self.assertType(output["stats"], dict)
+        self.assertType(output["list"], str)
 
     def test_create_3(self):
         """Stat to log, list to json"""
-        out, err = self.api.create(
+        output = self.api.create(
             self.archive,
             self.data,
-            stat=True,
+            stats=True,
             log_json=True,
             list=True,
         )
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "create 3",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertFalse(out) # stats list, not shown because log_json
-        self.assertTrue(err) # list, string
-        self.assertFalse(list_capture) # ??? log_json / list
-        self.assertFalse(stats_capture) # ??? log_json
+        self.display("create 3", output)
+        self.assertType(output["stats"], str)
+        self.assertAnyType(output["list"], list, dict)
 
     def test_extract_1(self):
         """list to log"""
         self.api.create(self.archive, self.data)
-        out, err = self.api.extract(self.archive, list=True, dry_run=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "extract 1",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertFalse(out)
-        self.assertFalse(err)
-        self.assertTrue(list_capture) # list, string
-        self.assertFalse(stats_capture)
+        output = self.api.extract(self.archive, list=True, dry_run=True)
+        self.display("extract 1", output)
+        self.assertType(output["list"], str)
 
     def test_extract_2(self):
         """list to json"""
         self.api.create(self.archive, self.data)
-        out, err = self.api.extract(self.archive, log_json=True, list=True, dry_run=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "extract 2",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertFalse(out)
-        self.assertFalse(err)
-        self.assertTrue(list_capture) # list, json
-        self.assertFalse(stats_capture)
+        output = self.api.extract(self.archive, log_json=True, list=True, dry_run=True)
+        self.display("extract 2", output)
+        self.assertAnyType(output["list"], str)
 
     def test_list_1(self):
         """repo list"""
         self.api.create(self.archive, self.data)
-        out, err = self.api.list(self.repo)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "list 1",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # list, string
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.list(self.repo)
+        self.display("list 1", output)
+        self.assertType(output["list"], str)
 
     def test_list_2(self):
         """repo list short"""
         self.api.create(self.archive, self.data)
-        out, err = self.api.list(self.repo, short=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "list 2",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # list, string
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.list(self.repo, short=True)
+        self.display("list 2", output)
+        self.assertType(output["list"], str)
 
     def test_list_3(self):
         """repo list json"""
         self.api.create(self.archive, self.data)
-        out, err = self.api.list(self.repo, json=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "list 3 - json",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # list, json
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
-
-        out, err = self.api.list(self.repo, log_json=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "list 3 - log json",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # list, json
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.list(self.repo, json=True)
+        self.display("list 3 - json", output)
+        self.assertAnyType(output["list"], list, dict)
+        output = self.api.list(self.repo, log_json=True)
+        self.display("list 3 - log json", output)
+        self.assertAnyType(output["list"], str)
 
     def test_list_4(self):
         """archive list"""
         self.api.create(self.archive, self.data)
-        out, err = self.api.list(self.archive)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "list 4",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # list, string
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.list(self.archive)
+        self.display("list 4", output)
+        self.assertType(output["list"], str)
 
     def test_list_5(self):
         """archive list short"""
         self.api.create(self.archive, self.data)
-        out, err = self.api.list(self.archive, short=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "list 5",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # list, string
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.list(self.archive, short=True)
+        self.display("list 5", output)
+        self.assertType(output["list"], str)
 
     def test_list_6(self):
         """archive list json"""
         self.api.create(self.archive, self.data)
-        out, err = self.api.list(self.archive, json_lines=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "list 6",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # list, json
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.list(self.archive, json_lines=True)
+        self.display("list 6", output)
+        self.assertAnyType(output["list"], list, dict)
 
     def test_diff_1(self):
         """no flags"""
@@ -337,23 +170,9 @@ class OutputTests(BorgapiTests):
         with open(self.file_3, "w") as fp:
             fp.write(self.file_3_text)
         self.api.create(f"{self.repo}::2", self.data)
-        out, err = self.api.diff(self.archive, "2")
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "diff 1",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # diff, string
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.diff(self.archive, "2")
+        self.display("diff 1", output)
+        self.assertType(output["diff"], str)
 
     def test_diff_2(self):
         """json lines"""
@@ -361,23 +180,9 @@ class OutputTests(BorgapiTests):
         with open(self.file_3, "w") as fp:
             fp.write(self.file_3_text)
         self.api.create(f"{self.repo}::2", self.data)
-        out, err = self.api.diff(self.archive, "2", json_lines=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "diff 2",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # diff, json
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.diff(self.archive, "2", json_lines=True)
+        self.display("diff 2", output)
+        self.assertAnyType(output["diff"], list, dict)
 
     def test_diff_3(self):
         """log json"""
@@ -385,105 +190,38 @@ class OutputTests(BorgapiTests):
         with open(self.file_3, "w") as fp:
             fp.write(self.file_3_text)
         self.api.create(f"{self.repo}::2", self.data)
-        out, err = self.api.diff(self.archive, "2", log_json=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "diff 3",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # diff, json
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.diff(self.archive, "2", log_json=True)
+        self.display("diff 3", output)
+        self.assertAnyType(output["diff"], str)
 
     def test_delete_1(self):
-        """repo no flags"""
-        self.api.create(self.archive, self.data)
-        out, err = self.api.delete(self.repo, dry_run=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "delete 1",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertFalse(out)
-        self.assertTrue(err) # confirmation message
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
-
-    def test_delete_2(self):
-        """archvie no flags"""
-        self.api.create(self.archive, self.data)
-        out, err = self.api.delete(self.archive, dry_run=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "delete 2",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertFalse(out)
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
-
-    def test_delete_3(self):
         """archvie stats"""
         self.api.create(self.archive, self.data)
-        out, err = self.api.delete(self.archive, stats=True)
+        output = self.api.delete(self.archive, stats=True)
+        self.display("delete 1", output)
+        self.assertType(output["stats"], str)
 
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "delete 3",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertFalse(out)
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertTrue(stats_capture) # stats, string
+    def test_delete_2(self):
+        """archvie stats"""
+        self.api.create(self.archive, self.data)
+        output = self.api.delete(self.archive, stats=True, log_json=True)
+        self.display("delete 2", output)
+        self.assertType(output["stats"], str)
 
     def _prune_setup(self):
         self.api.create(self.archive, self.data)
         sleep(1)
-
         with open(self.file_3, "w") as fp:
             fp.write(self.file_3_text)
         self.api.create(f"{self.repo}::2", self.data)
         sleep(1)
-
         remove(self.file_1)
         self.api.create(f"{self.repo}::3", self.data)
         sleep(1)
-
         with open(self.file_2, "w") as fp:
             fp.write(self.file_1_text)
         self.api.create(f"{self.repo}::4", self.data)
         sleep(1)
-
         remove(self.file_2)
         self.api.create(f"{self.repo}::5", self.data)
         sleep(1)
@@ -491,217 +229,71 @@ class OutputTests(BorgapiTests):
     def test_prune_1(self):
         """list"""
         self._prune_setup()
-        out, err = self.api.prune(self.repo, keep_last="3", dry_run=True, list=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "prune 1",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertFalse(out)
-        self.assertFalse(err)
-        self.assertTrue(list_capture) # list, string
-        self.assertFalse(stats_capture)
+        output = self.api.prune(self.repo, keep_last="3", dry_run=True, list=True)
+        self.display("prune 1", output)
+        self.assertType(output["list"], str)
 
     def test_prune_2(self):
         """stats"""
         self._prune_setup()
-        out, err = self.api.prune(self.repo, keep_last="3", dry_run=True, stats=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "prune 2",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertFalse(out)
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertTrue(stats_capture) # stats, string
+        output = self.api.prune(self.repo, keep_last="3", dry_run=True, stats=True)
+        self.display("prune 2", output)
+        self.assertType(output["stats"], str)
 
     def test_info_1(self):
         """repo no flags"""
-        out, err = self.api.info(self.repo)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "info 1",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # info, string
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.info(self.repo, log_json=True)
+        self.display("info 1", output)
+        self.assertType(output["info"], str)
 
     def test_info_2(self):
         """repo json"""
-        out, err = self.api.info(self.repo, json=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "info 2",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # info, json
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.info(self.repo, json=True)
+        self.display("info 2", output)
+        self.assertAnyType(output["info"], list, dict)
 
     def test_info_3(self):
         """archive no flags"""
         self.api.create(self.archive, self.data)
-        out, err = self.api.info(self.archive)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "info 3",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # info, string
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.info(self.archive)
+        self.display("info 3", output)
+        self.assertType(output["info"], str)
 
     def test_info_4(self):
         """archive json"""
         self.api.create(self.archive, self.data)
-        out, err = self.api.info(self.archive, json=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "info 4",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # info, json
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.info(self.archive, json=True)
+        self.display("info 4", output)
+        self.assertAnyType(output["info"], list, dict)
 
     def test_export_tar_1(self):
         """list"""
         export_dir = join(self.temp, "export")
         self._make_clean(export_dir)
         tar_file = join(export_dir, "export.tar")
-
         self.api.create(self.archive, self.data)
+        output = self.api.export_tar(self.archive, tar_file, list=True)
+        self.display("export tar 1", output)
+        self.assertType(output["list"], str)
 
-        out, err = self.api.export_tar(self.archive, tar_file, list=True)
-
-        rmtree(export_dir)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "export tar 1",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertFalse(out)
-        self.assertFalse(err)
-        self.assertTrue(list_capture) # list, string
-        self.assertFalse(stats_capture)
-
-    @unittest.skip("Wait to merge bug-12")
     def test_export_tar_2(self):
         """stdout"""
         self.api.create(self.archive, self.data)
-
-        out, err = self.api.export_tar(self.archive, "-")
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "export tar 2",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # tar, bytes
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.export_tar(self.archive, "-")
+        self.display("export tar 2", output)
+        self.assertType(output["tar"], bytes)
 
     def test_config_1(self):
         """list"""
-        out, err = self.api.config(self.repo, list=True)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "config 1",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # config, string
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.config(self.repo, list=True)
+        self.display("config 1", output)
+        self.assertType(output["list"], str)
 
     def test_config_2(self):
         """value"""
-        out, err = self.api.config(self.repo, "max_segment_size")
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "config 2",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # config, string
-        self.assertTrue(err) # config, [None]
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.config(self.repo, "max_segment_size")
+        self.display("config 2", output)
+        self.assertType(output["changes"], list)
 
     @unittest.skipIf(
         getenv("BORGAPI_TEST_BENCHMARK_SKIP"),
@@ -711,22 +303,6 @@ class OutputTests(BorgapiTests):
         """output"""
         benchmark_dir = join(self.temp, "benchmark")
         self._make_clean(benchmark_dir)
-        out, err = self.api.benchmark_crud(self.repo, benchmark_dir)
-
-        rmtree(benchmark_dir)
-
-        list_capture = self.get_value(self.list_handler)
-        stats_capture = self.get_value(self.stats_handler)
-
-        self.display(
-            "benchmark crud 1",
-            ("list", list_capture),
-            ("stats", stats_capture),
-            ("stdout", out),
-            ("stderr", err),
-        )
-
-        self.assertTrue(out) # results, string
-        self.assertFalse(err)
-        self.assertFalse(list_capture)
-        self.assertFalse(stats_capture)
+        output = self.api.benchmark_crud(self.repo, benchmark_dir)
+        self.display("benchmark crud 1", output)
+        self.assertType(output["benchmark"], str)

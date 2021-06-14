@@ -34,9 +34,9 @@ class ExtractTests(BorgapiTests):
         """Capture Extracted File"""
         api = self._init_and_create(self.repo, "1", self.data)
 
-        out, _ = api.extract(f"{self.repo}::1", self.file_1, stdout=True)
+        output = api.extract(f"{self.repo}::1", self.file_1, stdout=True)
         self.assertEqual(
-            out,
+            output["extract"],
             bytes(self.file_1_text, "utf-8"),
             "Extracted file text does not match",
         )

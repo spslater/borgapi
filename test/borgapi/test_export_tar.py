@@ -25,5 +25,5 @@ class ExportTarTests(BorgapiTests):
         """Export tar file"""
         api = self._init_and_create(self.repo, "1", self.data)
 
-        out, _ = api.export_tar(f"{self.repo}::1", "-")
-        self.assertTrue(out, "Exported tar contains no bytes exported")
+        output = api.export_tar(f"{self.repo}::1", "-")
+        self.assertTrue(output["tar"], "Exported tar contains no bytes exported")
