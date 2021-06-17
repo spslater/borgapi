@@ -10,56 +10,50 @@ from .test_borgapi import BorgapiTests
 class CreateTests(BorgapiTests):
     """Create command tests"""
 
-    def test_create(self):
+    def test_basic(self):
         """Create new archive"""
-        api = self._init_and_create(self.repo, "1", self.data)
-        out, _ = api.list(self.repo, json=True)
-        num_archives = len(out["archives"])
+        self.api.create(self.archive, self.data)
+        output = self.api.list(self.repo, json=True)
+        num_archives = len(output["archives"])
         self.assertEqual(num_archives, 1, "Archive not saved")
-        archive_name = out["archives"][0]["name"]
+        archive_name = output["archives"][0]["name"]
         self.assertEqual(archive_name, "1", "Archive name does not match set name")
 
-    def test_create_second(self):
+    def test_second(self):
         """Create second archive after data modification"""
-        api = self._init_and_create(self.repo, "1", self.data)
-
+        self.api.create(self.archive, self.data)
         with open(self.file_3, "w+") as fp:
             fp.write("New Data")
-        api.create(f"{self.repo}::2", self.data)
+        self.api.create(f"{self.repo}::2", self.data)
 
-        out, _ = api.list(self.repo, json=True)
-        num_archives = len(out["archives"])
+        output = self.api.list(self.repo, json=True)
+        num_archives = len(output["archives"])
         self.assertEqual(num_archives, 2, "Multiple archives not saved")
-        archive_1_name = out["archives"][0]["name"]
+        archive_1_name = output["archives"][0]["name"]
         self.assertEqual(archive_1_name, "1", "Archive name does not match set name")
-        archive_2_name = out["archives"][1]["name"]
+        archive_2_name = output["archives"][1]["name"]
         self.assertEqual(archive_2_name, "2", "Archive name does not match set name")
 
-    def test_create_already_exists(self):
+    def test_already_exists(self):
         """Create an archive with an existing name"""
-        api = self._init_and_create(self.repo, "1", self.data)
-
+        self.api.create(self.archive, self.data)
         self.assertRaises(
             Archive.AlreadyExists,
-            api.create,
-            f"{self.repo}::1",
+            self.api.create,
+            self.archive,
             self.data,
         )
 
-    def test_create_stdin(self):
+    def test_stdin(self):
         """Read input from stdin and save to archvie"""
-        api = self._init_and_create(self.repo, "1", self.data)
-
         temp_stdin = TextIOWrapper(BytesIO(bytes(self.file_3_text, "utf-8")))
         sys.stdin = temp_stdin
-
-        archive = f"{self.repo}::2"
         name = "file_3_stdin.txt"
-        mode = "0777" # "-rwxrwxrwx"
+        mode = "0777"  # "-rwxrwxrwx"
 
         try:
-            api.create(
-                archive,
+            self.api.create(
+                self.archive,
                 "-",
                 stdin_name=name,
                 stdin_mode=mode,
@@ -68,6 +62,75 @@ class CreateTests(BorgapiTests):
             temp_stdin.close()
             sys.stdin = sys.__stdin__
 
-        out, _ = api.list(archive, json_lines=True)
-        self.assertEqual(out["path"], name, "Unexpected file name")
-        self.assertEqual(out["mode"], "-rwxrwxrwx", "Unexpected file mode")
+        output = self.api.list(self.archive, json_lines=True)
+        self.assertEqual(output["path"], name, "Unexpected file name")
+        self.assertEqual(output["mode"], "-rwxrwxrwx", "Unexpected file mode")
+
+    def test_output_string(self):
+        """Create string info"""
+        output = self.api.create(self.archive, self.data, stats=True, list=True)
+        self._display("create string info", output, False)
+        self.assertType(output["stats"], str)
+        self.assertType(output["list"], str)
+
+    def test_output_json(self):
+        """Create json info"""
+        output = self.api.create(
+            self.archive,
+            self.data,
+            json=True,
+            log_json=True,
+            list=True,
+        )
+        self._display("create string info", output, False)
+        self.assertType(output["stats"], dict)
+        self.assertAnyType(output["list"], list, dict)
+
+    def test_output_mixed_1(self):
+        """Create mixed output (stats json, list string)"""
+        output = self.api.create(self.archive, self.data, json=True, list=True)
+        self._display("create mixed output (stats json, list string)", output, False)
+        self.assertType(output["stats"], dict)
+        self.assertType(output["list"], str)
+
+    def test_output_mixed_2(self):
+        """Create mixed output (stats string, list json)"""
+        output = self.api.create(
+            self.archive,
+            self.data,
+            stats=True,
+            log_json=True,
+            list=True,
+        )
+        self._display("create mixed output (stats string, list json)", output, False)
+        self.assertType(output["stats"], str)
+        self.assertAnyType(output["list"], list, dict)
+
+    def test_list_string(self):
+        """Create list string"""
+        output = self.api.create(self.archive, self.data, list=True)
+        self._display("create list string", output)
+        self.assertType(output, str)
+
+    def test_stats_json(self):
+        """Create stats json"""
+        output = self.api.create(self.archive, self.data, json=True)
+        self._display("create stats json", output)
+        self.assertType(output, dict)
+
+    def test_list_json(self):
+        """Create list json"""
+        output = self.api.create(
+            self.archive,
+            self.data,
+            log_json=True,
+            list=True,
+        )
+        self._display("create list json", output)
+        self.assertAnyType(output, list, dict)
+
+    def test_stats_string(self):
+        """Create stats string"""
+        output = self.api.create(self.archive, self.data, stats=True)
+        self._display("create stats string", output)
+        self.assertType(output, str)
