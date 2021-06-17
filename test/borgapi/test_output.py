@@ -4,6 +4,7 @@ import logging
 import unittest
 from os import getenv, remove
 from os.path import join
+from sys import version_info
 from time import sleep
 
 from borgapi import BorgAPI
@@ -71,7 +72,10 @@ class OutputTests(BorgapiTests):
     def reset_stream(handler):
         """Get value from a stream and clear it"""
         handler.stream.close()
-        handler.setStream(io.StringIO())
+        if version_info < (3, 6):
+            handler.setStream(io.StringIO())
+        else:
+            handler.stream = io.StringIO()
 
     @staticmethod
     def get_value(handler):
