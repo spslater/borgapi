@@ -1,2 +1,2 @@
-borgbackup==1.1.16
+borgbackup==1.2.0b3
 python-dotenv==0.17.1
