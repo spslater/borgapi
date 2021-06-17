@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2021-06-17
+### Fixed
+- Missing benchmark test added back in
+
+### Changed
+- Commands not returns a single value
+  - If multiple values are captured, a `dict` is returned with relevant key names
+  - Single value is returned by itself
+  - No captured value returns `None`
+
 ## [0.4.0] - 2021-06-11
 ### Fixed
 - `change`

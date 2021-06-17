@@ -14,7 +14,7 @@ Requires:
 * `borgbackup`: 1.1.16
 * `python-dotenv`: 0.17.1
 
-Now supports Python 3.6 and above.
+Supports Python 3.6 and above.
 
 ## Usage
 ```python
@@ -199,12 +199,44 @@ When the `--log-json` common flag is included it writes it to stderr. The `--sta
 option writes to the logger, like the `--list` option does, but when `--json` is used,
 which outputs the stats info as a json object, it gets written to stdout.
 
-Currently the api returns a tuple, `(stderr, stdout)`. If either `json` or `log_json` is set,
-it'll try to convert the tuple output to json. If it is unable and there is output that is captured
-it'll return the plaintext value. If no output is captured, it returns `None`.
+If either `json` or `log_json` is set, it'll try to convert the tuple output to json.
+If it is unable and there is output that is captured it'll return the plaintext value.
+If no output is captured, it returns `None`.
 
-This will be researched more so that specific commands will return relevant and clear values
-when called.
+If multiple outputs are requested at the same time (like `--stats` and `--list`) the command
+will return a dictionary with aptly named keys (`--list` key is "list"). If only one output
+is requested than the bare value will be returned, not in a dictionary.
+
+#### Command Returns
+Commands not listed return no output (None)
+- create
+  - list: `--list`, `--log-json`
+  - stats: `--stats`, `--json`
+- extract
+  - list: `--list`, `--log-json`
+  - extract: `--stdout`
+- list:
+  - list: always returns bare value
+  - `--log-json`, `--json`, `--json-lines`
+- diff:
+  - diff: always returns bare value
+  - `--log-json`, `--json-lines`
+- delete:
+  - stats: always returns bare value
+  - `--stats`
+- prune:
+  - list: `--list`, `--log-json`
+  - stats: `--stats`, `--log-json`
+- info
+  - always returns bare value
+- export tar
+  - list: `--list`, `--log-json`
+  - tar: filename == "-"
+- config
+  - list: `--list`, `--log-json`
+  - changes: single values passed into `*changes`
+- benchmark crud
+  - always returns bare value
 
 ## Roadmap
 - Start work on Borg's beta branch chagnes and keeping up with those
