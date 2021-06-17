@@ -888,17 +888,13 @@ class CommandOptions:
         return self._get_optional(command)(**optionals)
 
     def to_list(self, command: str, values: dict) -> list:
+        """Parsed args list for command
+
+        :param command: command name
+        :type command: str
+        :param values: options flags
+        :type values: dict
+        :return: list of converted flags
+        :rtype: list
+        """
         return self.get(command, values).parse()
-
-    #     """Return list with optional flags for command
-
-    #     :param command: command being called
-    #     :type command: str
-    #     :param values: dictionary with values for flags
-    #     :type values: dict
-    #     :return: list of optional values converted to args list format
-    #     :rtype: list
-    #     """
-
-    #     optional = self.get_command(command, values)
-    #     return optional.parse()

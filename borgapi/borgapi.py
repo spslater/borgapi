@@ -5,7 +5,7 @@ import os
 import sys
 from io import BytesIO, StringIO, TextIOWrapper
 from json import decoder, loads
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import borg.archive
 import borg.archiver
@@ -28,7 +28,9 @@ from .options import (
 
 __all__ = ["BorgAPI"]
 
-BorgRunOutput = Dict[str, Union[str, list, dict, None]]
+Json = Union[list, dict]
+Output = Union[str, Json, None]
+Options = Union[bool, str, int]
 
 
 class OutputCapture:
@@ -151,12 +153,16 @@ class BorgAPI:
         return result
 
     @staticmethod
-    def _build_result(*results: Tuple[str, Union[str, list, dict, None]]) -> dict:
+    def _build_result(*results: Tuple[str, Output]) -> Output:
+        if not results:
+            return None
+        if len(results) == 1:
+            return results[0][1] or None
         result = {}
         for name, value in results:
             if value:
                 result[name] = value
-        return result
+        return result or None
 
     # pylint: disable=no-member
     def _run(
@@ -164,7 +170,7 @@ class BorgAPI:
         arg_list: List,
         func: Callable,
         raw_bytes: bool = False,
-    ) -> BorgRunOutput:
+    ) -> dict:
         self._logger.debug("%s: %s", func.__name__, arg_list)
         arg_list.insert(0, "borgapi")
         args = self.archiver.get_args(arg_list, os.environ.get("SSH_ORIGINAL_COMMAND"))
@@ -200,7 +206,7 @@ class BorgAPI:
         self,
         filename: str = None,
         dictionary: dict = None,
-        **kwargs: Union[bool, str, int],
+        **kwargs: Options,
     ) -> None:
         """Load environment variables from file
 
@@ -211,7 +217,7 @@ class BorgAPI:
         :param dictionary: dictionary of environment variables to load, defaults to None
         :type dictionary: dict, optional
         :param **kwargs: Environment variables and their values as named args
-        :type **kwargs: Union[bool, str, int]
+        :type **kwargs: Options
         """
         variables = {}
         if filename:
@@ -233,10 +239,7 @@ class BorgAPI:
         load_dotenv(stream=config, override=True)
         config.close()
 
-    def unset_environ(
-        self,
-        *variable: Optional[str],
-    ) -> None:
+    def unset_environ(self, *variable: Optional[str]) -> None:
         """Remove variables from the environment
 
         If no variable is provided the values set from the previous call to `set_environ`
@@ -255,8 +258,8 @@ class BorgAPI:
         self,
         repository: str,
         encryption: str = "repokey",
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """Initialize an empty repository. A repository is a filesystem directory
         containing the deduplicated data from zero or more archives.
 
@@ -265,10 +268,10 @@ class BorgAPI:
         :param encryption: select encryption key mode; defaults to "repokey"
         :type encryption: str, optional
         :param **options: optional arguments specific to `init` and common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             json dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
@@ -283,8 +286,8 @@ class BorgAPI:
         self,
         archive: str,
         *paths: str,
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """Create a backup archive containing all files found while recursively
         traversing all paths specified.
 
@@ -294,10 +297,10 @@ class BorgAPI:
         :type *paths: str
         :param **options: optional arguments specific to `create` as well as exclusion,
             filesysem, archive, and common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         common_options = self._get_option(options, CommonOptions)
         create_options = self.optionals.get("create", options)
@@ -314,29 +317,25 @@ class BorgAPI:
 
         output = self._run(arg_list, self.archiver.do_create)
 
-        stats_result = list_result = None
-
+        result_list = []
         if create_options.stats and not create_options.json:
-            stats_result = output["stats"]
+            result_list.append(("stats", output["stats"]))
         elif create_options.json:
-            stats_result = self._loads_json_lines(output["stdout"])
+            result_list.append(("stats", self._loads_json_lines(output["stdout"])))
 
         if create_options.list and not common_options.log_json:
-            list_result = output["list"]
+            result_list.append(("list", output["list"]))
         elif create_options.list and common_options.log_json:
-            list_result = self._loads_json_lines(output["stderr"])
+            result_list.append(("list", self._loads_json_lines(output["stderr"])))
 
-        return self._build_result(
-            ("stats", stats_result),
-            ("list", list_result),
-        )
+        return self._build_result(*result_list)
 
     def extract(
         self,
         archive: str,
         *paths: Optional[str],
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """Extract the contents of an archive.
 
         :param archive: archive to extract
@@ -345,10 +344,10 @@ class BorgAPI:
         :type *paths: Optional[str]
         :param **options: optional arguments specific to `extract` as well as exclusion
             and common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         common_options = self._get_option(options, CommonOptions)
         extract_options = self.optionals.get("extract", options)
@@ -364,35 +363,28 @@ class BorgAPI:
         raw_bytes = options.get("stdout", False)
         output = self._run(arg_list, self.archiver.do_extract, raw_bytes=raw_bytes)
 
-        list_result = extract_result = None
+        result_list = []
         if extract_options.list and not common_options.log_json:
-            list_result = output["list"] or None
+            result_list.append(("list", output["list"]))
         elif extract_options.list and common_options.log_json:
-            list_result = self._loads_json_lines(output["list"]) or None
+            result_list.append(("list", self._loads_json_lines(output["list"])))
 
         if extract_options.stdout:
-            extract_result = output["stdout"]
+            result_list.append(("extract", output["stdout"]))
 
-        return self._build_result(
-            ("list", list_result),
-            ("extract", extract_result)
-        )
+        return self._build_result(*result_list)
 
-    def check(
-        self,
-        *repository_or_archive: str,
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+    def check(self, *repository_or_archive: str, **options: Options) -> Output:
         """Verify the consistency of a repository and the corresponding archives.
 
         :param *repository_or_archive: repository or archive to check consistency of
         :type *repository_or_archive: str
         :param **options: optional arguments specific to `check` as well as archive
             and common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
@@ -401,14 +393,15 @@ class BorgAPI:
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.extend(repository_or_archive)
 
-        return self._run(arg_list, self.archiver.do_check)
+        self._run(arg_list, self.archiver.do_check)
+        return self._build_result()
 
     def rename(
         self,
         archive: str,
         newname: str,
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """Rename an archive in the repository.
 
         :param archive: archive to rename
@@ -417,10 +410,10 @@ class BorgAPI:
         :type newname: str
         :param **options: optional arguments specific to `rename` as well as
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
@@ -428,15 +421,16 @@ class BorgAPI:
         arg_list.append(archive)
         arg_list.append(newname)
 
-        return self._run(arg_list, self.archiver.do_rename)
+        self._run(arg_list, self.archiver.do_rename)
+        return self._build_result()
 
     # pylint: disable=redefined-builtin
     def list(
         self,
         repository_or_archive: str,
         *paths: Optional[str],
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """List the contents of a repository or an archive.
 
         :param repository_or_archive: repository or archive to list contents of
@@ -445,10 +439,10 @@ class BorgAPI:
         :type *paths: Optional[str]
         :param **options: optional arguments specific to `list` as well as exclusion,
             archive, and common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         common_options = self._get_option(options, CommonOptions)
         list_options = self.optionals.get("list", options)
@@ -464,22 +458,21 @@ class BorgAPI:
 
         output = self._run(arg_list, self.archiver.do_list)
 
-        list_result = None
-
+        result_list = []
         if common_options.log_json or list_options.json or list_options.json_lines:
-            list_result = self._loads_json_lines(output["stdout"])
+            result_list.append(("list", self._loads_json_lines(output["stdout"])))
         else:
-            list_result = output["stdout"]
+            result_list.append(("list", output["stdout"]))
 
-        return self._build_result(("list", list_result))
+        return self._build_result(*result_list)
 
     def diff(
         self,
         repo_archive_1: str,
         archive_2: str,
         *paths: Optional[str],
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """Find the differences (file contents, user/group/mode) between archives.
 
         :param repo_archive_1: repository location and ARCHIVE1 name
@@ -490,10 +483,10 @@ class BorgAPI:
         :type *paths: Optional[str]
         :param **options: optional arguments specific to `diff` as well as exclusion, and
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         common_options = self._get_option(options, CommonOptions)
         diff_options = self.optionals.get("diff", options)
@@ -509,20 +502,20 @@ class BorgAPI:
 
         output = self._run(arg_list, self.archiver.do_diff)
 
-        diff_result = None
+        result_list = []
         if common_options.log_json or diff_options.json_lines:
-            diff_result = self._loads_json_lines(output["stdout"])
+            result_list.append(("diff", self._loads_json_lines(output["stdout"])))
         else:
-            diff_result = output["stdout"]
+            result_list.append(("diff", output["stdout"]))
 
-        return self._build_result(("diff", diff_result))
+        return self._build_result(*result_list)
 
     def delete(
         self,
         repository_or_archive: str,
         *archives: Optional[str],
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """Delete an archive from the repository or the complete repository
 
         :param repository_or_archive: repository or archive to delete
@@ -531,10 +524,10 @@ class BorgAPI:
         :type *archives: Optional[str]
         :param **options: optional arguments specific to `delete` as well as
             archive and common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         common_options = self._get_option(options, CommonOptions)
         delete_options = self.optionals.get("delete", options)
@@ -549,19 +542,15 @@ class BorgAPI:
 
         output = self._run(arg_list, self.archiver.do_delete)
 
-        stats_result = None
+        result_list = []
         if delete_options.stats and common_options.log_json:
-            stats_result = self._loads_json_lines(output["stats"])
+            result_list.append(("stats", self._loads_json_lines(output["stats"])))
         elif delete_options.stats:
-            stats_result = output["stats"]
+            result_list.append(("stats", output["stats"]))
 
-        return self._build_result(("stats", stats_result))
+        return self._build_result(*result_list)
 
-    def prune(
-        self,
-        repository: str,
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+    def prune(self, repository: str, **options: Options) -> Output:
         """Prune a repository by deleting all archives not matching any of the specified
         retention options.
 
@@ -569,10 +558,10 @@ class BorgAPI:
         :type repository: str
         :param **options: optional arguments specific to `prune` as well as archive and
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         common_options = self._get_option(options, CommonOptions)
         prune_options = self.optionals.get("prune", options)
@@ -586,36 +575,29 @@ class BorgAPI:
 
         output = self._run(arg_list, self.archiver.do_prune)
 
-        list_result = stats_result = None
+        result_list = []
         if prune_options.list and not common_options.log_json:
-            list_result = output["list"]
+            result_list.append(("list", output["list"]))
         elif prune_options.list and common_options.log_json:
-            list_result = self._loads_json_lines(output["list"])
+            result_list.append(("list", self._loads_json_lines(output["list"])))
         if prune_options.stats and not common_options.log_json:
-            stats_result = output["stats"]
+            result_list.append(("stats", output["stats"]))
         elif prune_options.stats and common_options.log_json:
-            stats_result = self._loads_json_lines(output["stats"])
+            result_list.append(("stats", self._loads_json_lines(output["stats"])))
 
-        return self._build_result(
-            ("stats", stats_result),
-            ("list", list_result),
-        )
+        return self._build_result(*result_list)
 
-    def info(
-        self,
-        repository_or_archive: str,
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+    def info(self, repository_or_archive: str, **options: Options) -> Output:
         """Display detailed information about the specified archive or repository.
 
         :param repository_or_archive: repository or archive to display information about
         :type repository_or_archive: str
         :param **options: optional arguments specific to `info` as well as archive and
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         common_options = self._get_option(options, CommonOptions)
         info_options = self.optionals.get("info", options)
@@ -629,21 +611,21 @@ class BorgAPI:
 
         output = self._run(arg_list, self.archiver.do_info)
 
-        info_result = None
+        result_list = []
         if info_options.json:
-            info_result = self._loads_json_lines(output["stdout"])
+            result_list.append(("info", self._loads_json_lines(output["stdout"])))
         else:
-            info_result = output["stdout"]
+            result_list.append(("info", output["stdout"]))
 
-        return self._build_result(("info", info_result))
+        return self._build_result(*result_list)
 
     def mount(
         self,
         repository_or_archive: str,
         mountpoint: str,
         *paths: Optional[str],
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """Mount an archive as a FUSE filesystem.
 
         :param repository_or_archive: repository or archive to mount
@@ -654,10 +636,10 @@ class BorgAPI:
         :type *paths: Optional[str]
         :param **options: optional arguments specific to `mount` as well as exclusion,
             archive, and common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
@@ -669,60 +651,55 @@ class BorgAPI:
         arg_list.append(mountpoint)
         arg_list.extend(paths)
 
-        return self._run(arg_list, self.archiver.do_mount)
+        self._run(arg_list, self.archiver.do_mount)
+        return self._build_result()
 
-    def umount(
-        self,
-        mountpoint: str,
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+    def umount(self, mountpoint: str, **options: Options) -> Output:
         """Un-mount a FUSE filesystem that was mounted with `mount`.
 
         :param mountpoint: mountpoint of the filesystem to umount
         :type mountpoint: str
         :param **options: optional arguments specific to `umount` as well as
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("umount")
         arg_list.append(mountpoint)
 
-        return self._run(arg_list, self.archiver.do_umount)
+        self._run(arg_list, self.archiver.do_umount)
+        return self._build_result()
 
-    def key_change_passphrase(
-        self,
-        repository: str,
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+    def key_change_passphrase(self, repository: str, **options: Options) -> Output:
         """Change the passphrase protecting the repository encryption.
 
         :param repository: repository to modify
         :type repository: str
         :param **options: optional arguments specific to `key change-passphrase` as well as
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.extend(["key", "change-passphrase"])
         arg_list.append(repository)
 
-        return self._run(arg_list, self.archiver.do_change_passphrase)
+        self._run(arg_list, self.archiver.do_change_passphrase)
+        return self._build_result()
 
     def key_export(
         self,
         repository: str,
         path: str,
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """Copy repository encryption key to another location.
 
         :param repository: repository to get key for
@@ -731,10 +708,10 @@ class BorgAPI:
         :type path: str
         :param **options: optional arguments specific to `key export` as well as
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
@@ -743,14 +720,15 @@ class BorgAPI:
         arg_list.append(repository)
         arg_list.append(path)
 
-        return self._run(arg_list, self.archiver.do_key_export)
+        self._run(arg_list, self.archiver.do_key_export)
+        return self._build_result()
 
     def key_import(
         self,
         repository: str,
         path: str,
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """Restore a key previously backed up with the export command.
 
         :param repository: repository to get key for
@@ -759,10 +737,10 @@ class BorgAPI:
         :type path: str
         :param **options: optional arguments specific to `key import` as well as
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
@@ -771,23 +749,20 @@ class BorgAPI:
         arg_list.append(repository)
         arg_list.append(path)
 
-        return self._run(arg_list, self.archiver.do_key_import)
+        self._run(arg_list, self.archiver.do_key_import)
+        return self._build_result()
 
-    def upgrade(
-        self,
-        repository: str,
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+    def upgrade(self, repository: str, **options: Options) -> Output:
         """Upgrade an existing, local Borg repository.
 
         :param repository: path to the repository to be upgraded
         :type repository: str
         :param **options: optional arguments specific to `upgrade` as well as
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
@@ -795,15 +770,16 @@ class BorgAPI:
         arg_list.extend(self.optionals.to_list("upgrade", options))
         arg_list.append(repository)
 
-        return self._run(arg_list, self.archiver.do_upgrade)
+        self._run(arg_list, self.archiver.do_upgrade)
+        return self._build_result()
 
     def export_tar(
         self,
         archive: str,
         file: str,
         *paths: Optional[str],
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """Create a tarball from an archive.
 
         :param archive: archive to export
@@ -814,10 +790,10 @@ class BorgAPI:
         :type *paths: Optional[str]
         :param **options: optional arguments specific to `export-tar` as well as exclusion and
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         common_options = self._get_option(options, CommonOptions)
         export_tar_options = self.optionals.get("export_tar", options)
@@ -831,42 +807,41 @@ class BorgAPI:
         arg_list.append(file)
         arg_list.extend(paths)
 
-        output = self._run(arg_list, self.archiver.do_export_tar, raw_bytes=(file == "-"))
-
-        list_result = export_result = None
-        if export_tar_options.list:
-            list_result = output["list"]
-        if file == "-":
-            export_result = output["stdout"]
-
-        return self._build_result(
-            ("list", list_result),
-            ("tar", export_result),
+        output = self._run(
+            arg_list,
+            self.archiver.do_export_tar,
+            raw_bytes=(file == "-"),
         )
 
-    def serve(
-        self,
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        result_list = []
+        if export_tar_options.list:
+            result_list.append(("list", output["list"]))
+        if file == "-":
+            result_list.append(("tar", output["stdout"]))
+
+        return self._build_result(*result_list)
+
+    def serve(self, **options: Options) -> Output:
         """Start a repository server process. This command is usually not used manually.
 
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("serve")
         arg_list.extend(self.optionals.to_list("serve", options))
 
-        return self._run(arg_list, self.archiver.do_serve)
+        self._run(arg_list, self.archiver.do_serve)
+        return self._build_result()
 
     def config(
         self,
         repository: str,
         *changes: Union[str, Tuple[str, str]],
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """Get and set options in a local repository or cache config file.
 
         :param repository: repository to configure
@@ -875,10 +850,10 @@ class BorgAPI:
         :type *changes: Union[str, Tuple[str, str]]
         :param **options: optional arguments specific to `config` as well as
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         common_options = self._get_option(options, CommonOptions)
         config_options = self.optionals.get("config", options)
@@ -890,13 +865,13 @@ class BorgAPI:
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(repository)
 
-        change_result = []
-        list_result = None
+        result_list = []
         if not changes:
             output = self._run(arg_list, self.archiver.do_config)
             if config_options.list:
-                list_result = output["stdout"]
+                result_list.append(("list", output["stdout"]))
 
+        change_result = []
         for change in changes:
             if isinstance(change, tuple):
                 change = arg_list + [change[0], change[1]]
@@ -905,19 +880,17 @@ class BorgAPI:
                 change = arg_list + [change]
                 output = self._run(change, self.archiver.do_config)
                 change_result.append(output["stdout"])
+            result_list.append(("changes", change_result))
 
-        return self._build_result(
-            ("changes", change_result),
-            ("list", list_result),
-        )
+        return self._build_result(*result_list)
 
     def with_lock(
         self,
         repository: str,
         command: str,
         *args: Union[str, int],
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """Run a user-specified command while the repository lock is held.
 
         :param repository: repository to lock
@@ -928,10 +901,10 @@ class BorgAPI:
         :type *args: Union[str, int]
         :param **options: optional arguments specific to `config` as well as
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
@@ -940,35 +913,35 @@ class BorgAPI:
         arg_list.append(command)
         arg_list.extend(args)
 
-        return self._run(arg_list, self.archiver.do_with_lock)
+        self._run(arg_list, self.archiver.do_with_lock)
+        return self._build_result()
 
-    def break_lock(
-        self, repository: str, **options: Union[bool, str, int]
-    ) -> BorgRunOutput:
+    def break_lock(self, repository: str, **options: Options) -> Output:
         """Break the repository and cache locks.
 
         :param repository: repository for which to break the locks
         :type repository: str
         :param **options: optional arguments specific to `config` as well as
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         arg_list = []
         arg_list.extend(self._get_option_list(options, CommonOptions))
         arg_list.append("break-lock")
         arg_list.append(repository)
 
-        return self._run(arg_list, self.archiver.do_break_lock)
+        self._run(arg_list, self.archiver.do_break_lock)
+        return self._build_result()
 
     def benchmark_crud(
         self,
         repository: str,
         path: str,
-        **options: Union[bool, str, int],
-    ) -> BorgRunOutput:
+        **options: Options,
+    ) -> Output:
         """Benchmark borg CRUD (create, read, update, delete) operations.
 
         :param repository: repository to use for benchmark (must exist)
@@ -977,10 +950,10 @@ class BorgAPI:
         :type path: str
         :param **options: optional arguments specific to `config` as well as
             common options; defaults to {}
-        :type **options: Union[bool, str, int]
+        :type **options: Options
         :return: Stdout of command, None if no output created,
             dict if json flag used, str otherwise
-        :rtype: BorgRunOutput
+        :rtype: Output
         """
         common_options = self._get_option(options, CommonOptions)
 
@@ -992,6 +965,5 @@ class BorgAPI:
 
         output = self._run(arg_list, self.archiver.do_benchmark_crud)
 
-        benchmark_result = output["stdout"]
-
-        return self._build_result(("benchmark", benchmark_result))
+        result_list = [("benchmark", output["stdout"])]
+        return self._build_result(*result_list)

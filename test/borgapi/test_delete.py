@@ -2,57 +2,67 @@
 from borg.archive import Archive
 from borg.repository import Repository
 
-from borgapi import BorgAPI
-
 from .test_borgapi import BorgapiTests
 
 
 class DeleteTests(BorgapiTests):
     """Delete command tests"""
 
-    def test_delete_repository(self):
+    def test_repository(self):
         """Delete repository"""
-        api = self._init_and_create(self.repo, "1", self.data)
-        api.delete(self.repo)
+        self._create_default()
+        self.api.delete(self.repo)
         self.assertRaises(
             Repository.DoesNotExist,
-            api.list,
+            self.api.list,
             self.repo,
             msg="Deleted repository still exists",
         )
 
     # pylint: disable=invalid-name
-    def test_delete_repository_not_exist(self):
+    def test_repository_not_exist(self):
         """Delete repository that doesn't exist"""
-        api = BorgAPI()
+        self._make_clean(self.repo)
         self.assertRaises(
             Repository.InvalidRepository,
-            api.delete,
+            self.api.delete,
             self.repo,
             msg="Deleted nonexistant repository",
         )
 
-    def test_delete_archive(self):
+    def test_archive(self):
         """Delete archive"""
-        api = self._init_and_create(self.repo, "1", self.data)
-        api.delete(f"{self.repo}::1")
+        self._create_default()
+        self.api.delete(self.archive)
         self.assertRaises(
             Archive.DoesNotExist,
-            api.list,
-            f"{self.repo}::1",
+            self.api.list,
+            self.archive,
             msg="Deleted archive still exists",
         )
 
-    def test_delete_archive_not_exist(self):
+    def test_archive_not_exist(self):
         """Delete archvie that doesn't exist"""
-        api = self._init_and_create(self.repo, "1", self.data)
-
         with self.assertLogs("borg", "WARNING") as logger:
-            api.delete(f"{self.repo}::2")
+            self.api.delete(self.archive)
 
         message = logger.records[0].getMessage()
         self.assertRegex(
             message,
-            r".*?2.*not found",
+            r".*?1.*not found",
             "Warning not logged for bad archive name",
         )
+
+    def test_stats_string(self):
+        """Archvie stats string"""
+        self._create_default()
+        output = self.api.delete(self.archive, stats=True)
+        self._display("delete 1", output)
+        self.assertType(output, str)
+
+    def test_stats_json(self):
+        """Archvie stats json"""
+        self._create_default()
+        output = self.api.delete(self.archive, stats=True, log_json=True)
+        self._display("delete 2", output)
+        self.assertType(output, str)

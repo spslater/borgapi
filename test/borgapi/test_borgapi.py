@@ -5,7 +5,6 @@ from configparser import ConfigParser
 from os import getenv, makedirs, remove
 from os.path import exists, join
 from shutil import rmtree
-from time import sleep
 
 from dotenv import load_dotenv
 
@@ -14,7 +13,7 @@ from borgapi import BorgAPI
 
 # pylint: disable=too-many-public-methods
 class BorgapiTests(unittest.TestCase):
-    """Test for the borgbackup api"""
+    """Test for the borgbackup self.api"""
 
     # pylint: disable=invalid-name
     @staticmethod
@@ -89,7 +88,7 @@ class BorgapiTests(unittest.TestCase):
             makedirs(directory)
 
     @staticmethod
-    def read_config(string=None, filename=None):
+    def _read_config(string=None, filename=None):
         """Convert config string into dictionary"""
         config = ConfigParser()
         if filename:
@@ -99,13 +98,19 @@ class BorgapiTests(unittest.TestCase):
             config.read_string(string)
         return config
 
-    # pylint: disable=dangerous-default-value
     @staticmethod
-    def _init_and_create(repo, archive, data, options={}):
-        api = BorgAPI(options=options)
-        api.init(repo, **options)
-        api.create(f"{repo}::{archive}", data, **options)
-        return api
+    def _display(header, output, single=True):
+        """display captured output"""
+        if getenv("BORGAPI_TEST_OUTPUT_DISPLAY"):
+            print(header)
+            if single:
+                print(output)
+            else:
+                for name, value in output.items():
+                    print(f"~~~~~~~~~~ {name} ~~~~~~~~~~")
+                    print(value)
+            print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+            print()
 
     @classmethod
     def setUpClass(cls):
@@ -115,6 +120,8 @@ class BorgapiTests(unittest.TestCase):
         cls.data = join(cls.temp, "data")
         cls.repo = join(cls.temp, "repo")
         cls.logs = join(cls.temp, "logs")
+
+        cls.archive = f"{cls.repo}::1"
 
         cls._try_pass(FileNotFoundError, rmtree, cls.data)
         cls._try_pass(FileNotFoundError, rmtree, cls.repo)
@@ -154,6 +161,9 @@ class BorgapiTests(unittest.TestCase):
 
         self._try_pass(FileNotFoundError, remove, self.file_3)
 
+        self.api = BorgAPI()
+        self.api.init(self.repo)
+
     def tearDown(self):
         """Resets mess made"""
         if not getenv("BORGAPI_TEST_KEEP_TEMP"):
@@ -162,100 +172,55 @@ class BorgapiTests(unittest.TestCase):
             if not getenv("BORGAPI_TEST_KEEP_LOGS"):
                 self._try_pass(FileNotFoundError, rmtree, self.logs)
 
+    def _create_default(self):
+        self.api.create(self.archive, self.data)
+
 
 class SingleTests(BorgapiTests):
     """Simple Command and Class Methodss tests"""
 
     def test_borgapi_logger(self):
         """Verify loggers are setup correctly for borgapi"""
-        BorgAPI()
         loggers = logging.root.manager.loggerDict
         self.assertIn("borgapi", loggers, "borgapi logger not present")
         self.assertIn("borg", loggers, "borg logger not present")
 
     def test_set_environ(self):
         """Set new env variable"""
-        api = BorgAPI()
-
         key = "TEST_VARIABLE"
 
         with open(self.file_3, "w") as fp:
             fp.write(f"{key}={self.file_3_text}")
-        api.set_environ(filename=self.file_3)
+        self.api.set_environ(filename=self.file_3)
         got = getenv(key)
         self.assertEqual(got, self.file_3_text)
 
-        api.set_environ(dictionary={key: self.file_1_text})
+        self.api.set_environ(dictionary={key: self.file_1_text})
         got = getenv(key)
         self.assertEqual(got, self.file_1_text)
 
-        api.set_environ(**{key: self.file_2_text})
+        self.api.set_environ(**{key: self.file_2_text})
         got = getenv(key)
         self.assertEqual(got, self.file_2_text)
 
     def test_unset_environ(self):
         """Remove env variable"""
-        api = BorgAPI()
-
         key = "TEST_VARIABLE"
 
-        api.set_environ(**{key: self.file_1_text})
+        self.api.set_environ(**{key: self.file_1_text})
         got = getenv(key)
         self.assertEqual(got, self.file_1_text)
-        api.unset_environ(key)
+        self.api.unset_environ(key)
         got = getenv(key)
         self.assertFalse(got)
 
         with open(self.file_3, "w") as fp:
             fp.write(f"{key}={self.file_3_text}")
-        api.set_environ(filename=self.file_3)
-        api.unset_environ()
+        self.api.set_environ(filename=self.file_3)
+        self.api.unset_environ()
         got = getenv(key)
         self.assertFalse(got)
-
-    # pylint: disable=invalid-sequence-index
-    def test_prune(self):
-        """Prune archives"""
-        api = self._init_and_create(self.repo, "1", self.data)
-        sleep(1)
-        with open(self.file_3, "w") as fp:
-            fp.write(self.file_3_text)
-        api.create(f"{self.repo}::2", self.data)
-        sleep(1)
-        with open(self.file_1, "w") as fp:
-            fp.write(self.file_2_text)
-        api.create(f"{self.repo}::3", self.data)
-        sleep(1)
-        with open(self.file_2, "w") as fp:
-            fp.write(self.file_3_text)
-        api.create(f"{self.repo}::4", self.data)
-        sleep(1)
-        with open(self.file_3, "w") as fp:
-            fp.write(self.file_1_text)
-        api.create(f"{self.repo}::5", self.data)
-        sleep(1)
-
-        api.prune(self.repo, keep_last="3")
-        output = api.list(self.repo, json=True)
-        num_archives = len(output["list"]["archives"])
-        self.assertEqual(num_archives, 3, "Unexpected number of archvies pruned")
 
     @unittest.skip("WIP: Don't know what locking would be used for")
     def test_lock(self):
         """Don't know what locking would be used for, so don't know how to test"""
-
-    @unittest.skipIf(
-        getenv("BORGAPI_TEST_BENCHMARK_SKIP"),
-        "Gotta go fast (only use for quick testing, not release)",
-    )
-    def test_benchmark_crud(self):
-        """Benchmark CRUD operations"""
-        api = self._init_and_create(self.repo, "1", self.data)
-
-        benchmark_dir = join(self.temp, "benchmark")
-        self._make_clean(benchmark_dir)
-        output = api.benchmark_crud(self.repo, benchmark_dir)
-
-        self.assertTrue(output["result"], "Unexpected (ie None) output from benchmark")
-
-        rmtree(benchmark_dir)
