@@ -2,7 +2,7 @@
 from os.path import join
 from shutil import rmtree
 
-from .test_borgapi import BorgapiTests
+from .test_01_borgapi import BorgapiTests
 
 
 class KeyTests(BorgapiTests):
@@ -25,7 +25,7 @@ class KeyTests(BorgapiTests):
         rmtree(self.export_dir)
         super().tearDown()
 
-    def test_change_passphrase(self):
+    def test_01_change_passphrase(self):
         """Change key passphrase"""
         repo_config_file = join(self.repo, "config")
         repo_config = self._read_config(filename=repo_config_file)
@@ -45,7 +45,7 @@ class KeyTests(BorgapiTests):
             "Changed key matches original",
         )
 
-    def test_export(self):
+    def test_02_export(self):
         """Export repo excryption key"""
         self.api.key_export(self.repo, self.key_file)
         self.assertFileExists(
@@ -53,7 +53,7 @@ class KeyTests(BorgapiTests):
             "Repo key not exported to expected location",
         )
 
-    def test_export_paper(self):
+    def test_03_export_paper(self):
         """Export repo excryption key"""
         self.api.key_export(self.repo, self.key_file, paper=True)
         self.assertFileExists(
@@ -61,7 +61,7 @@ class KeyTests(BorgapiTests):
             "Repo key not exported to expected location",
         )
 
-    def test_import(self):
+    def test_04_import(self):
         """Import original key to repository"""
         self.api.key_export(self.repo, self.key_file)
 

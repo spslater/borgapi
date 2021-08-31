@@ -4,7 +4,7 @@ from os.path import join
 from shutil import rmtree
 from time import sleep
 
-from .test_borgapi import BorgapiTests
+from .test_01_borgapi import BorgapiTests
 
 
 class MountTests(BorgapiTests):
@@ -29,7 +29,7 @@ class MountTests(BorgapiTests):
             rmtree(self.mountpoint)
         super().tearDown()
 
-    def test_repository(self):
+    def test_01_repository(self):
         """Mount and unmount a repository"""
         output = self.api.mount(self.repo, self.mountpoint)
         sleep(5)
@@ -38,7 +38,7 @@ class MountTests(BorgapiTests):
         self.api.umount(self.mountpoint)
         self.assertFileNotExists(self.repo_file)
 
-    def test_archive(self):
+    def test_02_archive(self):
         """Mount and unmount a archive"""
         output = self.api.mount(self.archive, self.mountpoint)
         sleep(5)

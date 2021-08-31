@@ -1,5 +1,5 @@
 """Test list command"""
-from .test_borgapi import BorgapiTests
+from .test_01_borgapi import BorgapiTests
 
 
 class ListTests(BorgapiTests):
@@ -9,7 +9,7 @@ class ListTests(BorgapiTests):
         super().setUp()
         self._create_default()
 
-    def test_basic(self):
+    def test_01_basic(self):
         """List repo archvies and archive files"""
         output = self.api.list(self.repo, json=True)
         num_archvies = len(output["archives"])
@@ -19,19 +19,19 @@ class ListTests(BorgapiTests):
         num_files = len(output)
         self.assertEqual(num_files, 3, "Unexpected number of files returned")
 
-    def test_repo_basic(self):
+    def test_02_repo_basic(self):
         """List repo"""
         output = self.api.list(self.repo)
         self._display("list repo", output)
         self.assertType(output, str)
 
-    def test_repo_short(self):
+    def test_03_repo_short(self):
         """List repo short"""
         output = self.api.list(self.repo, short=True)
         self._display("list repo short", output)
         self.assertType(output, str)
 
-    def test_repo_json(self):
+    def test_04_repo_json(self):
         """List repo json"""
         output = self.api.list(self.repo, json=True)
         self._display("list repo json", output)
@@ -40,19 +40,19 @@ class ListTests(BorgapiTests):
         self._display("list repo log json", output)
         self.assertAnyType(output, str)
 
-    def test_archive_basic(self):
+    def test_05_archive_basic(self):
         """List archive"""
         output = self.api.list(self.archive)
         self._display("list archive", output)
         self.assertType(output, str)
 
-    def test_archive_short(self):
+    def test_06_archive_short(self):
         """List archive short"""
         output = self.api.list(self.archive, short=True)
         self._display("list archive short", output)
         self.assertType(output, str)
 
-    def test_archive_json(self):
+    def test_07_archive_json(self):
         """List archive json"""
         output = self.api.list(self.archive, json_lines=True)
         self._display("list archive json", output)

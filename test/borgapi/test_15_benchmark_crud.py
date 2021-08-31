@@ -3,7 +3,7 @@ from os import getenv
 from os.path import join
 from shutil import rmtree
 
-from .test_borgapi import BorgapiTests
+from .test_01_borgapi import BorgapiTests
 
 
 class BenchmarkCrudTests(BorgapiTests):
@@ -14,7 +14,7 @@ class BenchmarkCrudTests(BorgapiTests):
             self.skipTest("Gotta go fast (only use for quick testing, not release)")
         super().setUp()
 
-    def test_output(self):
+    def test_01_output(self):
         """Benchmark CRUD operations"""
         benchmark_dir = join(self.temp, "benchmark")
         self._make_clean(benchmark_dir)

@@ -179,13 +179,13 @@ class BorgapiTests(unittest.TestCase):
 class SingleTests(BorgapiTests):
     """Simple Command and Class Methodss tests"""
 
-    def test_borgapi_logger(self):
+    def test_01_borgapi_logger(self):
         """Verify loggers are setup correctly for borgapi"""
         loggers = logging.root.manager.loggerDict
         self.assertIn("borgapi", loggers, "borgapi logger not present")
         self.assertIn("borg", loggers, "borg logger not present")
 
-    def test_set_environ(self):
+    def test_02_set_environ(self):
         """Set new env variable"""
         key = "TEST_VARIABLE"
 
@@ -203,7 +203,7 @@ class SingleTests(BorgapiTests):
         got = getenv(key)
         self.assertEqual(got, self.file_2_text)
 
-    def test_unset_environ(self):
+    def test_03_unset_environ(self):
         """Remove env variable"""
         key = "TEST_VARIABLE"
 
@@ -222,5 +222,5 @@ class SingleTests(BorgapiTests):
         self.assertFalse(got)
 
     @unittest.skip("WIP: Don't know what locking would be used for")
-    def test_lock(self):
+    def test_04_lock(self):
         """Don't know what locking would be used for, so don't know how to test"""

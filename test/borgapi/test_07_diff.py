@@ -1,5 +1,5 @@
 """Test deff command"""
-from .test_borgapi import BorgapiTests
+from .test_01_borgapi import BorgapiTests
 
 
 class DiffTests(BorgapiTests):
@@ -9,7 +9,7 @@ class DiffTests(BorgapiTests):
         super().setUp()
         self._create_default()
 
-    def test_add_file(self):
+    def test_01_add_file(self):
         """Diff new file"""
         with open(self.file_3, "w") as fp:
             fp.write(self.file_3_text)
@@ -21,7 +21,7 @@ class DiffTests(BorgapiTests):
         self.assertEqual(modify_path, self.file_3, "Unexpected new filename")
         self.assertEqual(modify_type, "added", "New file not listed as added")
 
-    def test_modify_file(self):
+    def test_02_modify_file(self):
         """Diff modified file"""
         with open(self.file_3, "w") as fp:
             fp.write(self.file_3_text)
@@ -35,7 +35,7 @@ class DiffTests(BorgapiTests):
         self.assertEqual(modify_path, self.file_2, "Unexpected file changed")
         self.assertEqual(modify_type, "modified", "Unexpected change type")
 
-    def test_output(self):
+    def test_03_output(self):
         """Diff string"""
         with open(self.file_3, "w") as fp:
             fp.write(self.file_3_text)
@@ -44,7 +44,7 @@ class DiffTests(BorgapiTests):
         self._display("diff sting", output)
         self.assertType(output, str)
 
-    def test_output_json(self):
+    def test_04_output_json(self):
         """Diff json"""
         with open(self.file_3, "w") as fp:
             fp.write(self.file_3_text)

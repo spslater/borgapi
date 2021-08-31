@@ -2,7 +2,7 @@
 from os.path import join
 from shutil import rmtree
 
-from .test_borgapi import BorgapiTests
+from .test_01_borgapi import BorgapiTests
 
 
 class ExportTarTests(BorgapiTests):
@@ -20,18 +20,18 @@ class ExportTarTests(BorgapiTests):
         rmtree(self.export_dir)
         super().tearDown()
 
-    def test_basic(self):
+    def test_01_basic(self):
         """Export tar file"""
         self.api.export_tar(self.archive, self.tar_file)
         self.assertFileExists(self.tar_file, "Tar file not exported")
 
-    def test_stdout(self):
+    def test_02_stdout(self):
         """Export tar stdout"""
         output = self.api.export_tar(self.archive, "-")
         self._display("export tar 2", output)
         self.assertType(output, bytes)
 
-    def test_output_json(self):
+    def test_03_output_json(self):
         """Export tar output"""
         output = self.api.export_tar(self.archive, self.tar_file, list=True)
         self._display("export tar 1", output)

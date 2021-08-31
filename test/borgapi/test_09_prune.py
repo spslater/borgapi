@@ -2,7 +2,7 @@
 from os import remove
 from time import sleep
 
-from .test_borgapi import BorgapiTests
+from .test_01_borgapi import BorgapiTests
 
 
 class PruneTests(BorgapiTests):
@@ -28,20 +28,20 @@ class PruneTests(BorgapiTests):
         sleep(1)
 
     # pylint: disable=invalid-sequence-index
-    def test_basic(self):
+    def test_01_basic(self):
         """Prune archives"""
         self.api.prune(self.repo, keep_last="3")
         output = self.api.list(self.repo, json=True)
         num_archives = len(output["archives"])
         self.assertEqual(num_archives, 3, "Unexpected number of archvies pruned")
 
-    def test_output_list(self):
+    def test_02_output_list(self):
         """Prune output list"""
         output = self.api.prune(self.repo, keep_last="3", dry_run=True, list=True)
         self._display("prune list", output)
         self.assertType(output, str)
 
-    def test_output_stats(self):
+    def test_03_output_stats(self):
         """Prune output stats"""
         output = self.api.prune(self.repo, keep_last="3", dry_run=True, stats=True)
         self._display("prune stats", output)

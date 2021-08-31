@@ -4,7 +4,7 @@ from os.path import join
 
 from borg.repository import Repository
 
-from .test_borgapi import BorgapiTests
+from .test_01_borgapi import BorgapiTests
 
 
 class InitTests(BorgapiTests):
@@ -14,12 +14,12 @@ class InitTests(BorgapiTests):
         super().setUp()
         self._make_clean(self.repo)
 
-    def test_basic(self):
+    def test_01_basic(self):
         """Initalize new repository"""
         self.api.init(self.repo)
         self.assertFileExists(join(self.repo, "README"))
 
-    def test_already_exists(self):
+    def test_02_already_exists(self):
         """Initalize a repo in a directory where one already exists"""
         self.api.init(self.repo)
         self.assertRaises(
@@ -29,7 +29,7 @@ class InitTests(BorgapiTests):
             msg="Duplicate repositroy overwrites old repo",
         )
 
-    def test_path_exists(self):
+    def test_03_path_exists(self):
         """Initalize a repo in a directory where other data exists"""
         self.api.init(self.repo)
         self.assertRaises(
@@ -39,7 +39,7 @@ class InitTests(BorgapiTests):
             msg="Repositroy overwrites directory with other data",
         )
 
-    def test_make_parent(self):
+    def test_04_make_parent(self):
         """Init a repo where parents don't exist with different flags"""
         deep_repo = join(self.repo, "make/parents")
 
@@ -53,7 +53,7 @@ class InitTests(BorgapiTests):
         output = self.api.list(deep_repo, json=True)
         self.assertKeyExists("repository", output, "Repository not initalzied")
 
-    def test_storage_quota(self):
+    def test_05_storage_quota(self):
         """Limit the size of the repo"""
         self.api.init(self.repo, storage_quota="10M")
         with open(self.file_3, "wb") as fp:
@@ -66,7 +66,7 @@ class InitTests(BorgapiTests):
             msg="Stored more than quota allowed",
         )
 
-    def test_append_only(self):
+    def test_06_append_only(self):
         """Repo in append only mode"""
         self.api.init(self.repo, append_only=True)
         output = self.api.config(self.repo, list=True)
