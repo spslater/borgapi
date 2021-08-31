@@ -2,6 +2,7 @@
 from os import getenv
 from os.path import join
 from shutil import rmtree
+from time import sleep
 
 from .test_borgapi import BorgapiTests
 
@@ -24,19 +25,24 @@ class MountTests(BorgapiTests):
         self._make_clean(self.mountpoint)
 
     def tearDown(self):
-        rmtree(self.mountpoint)
+        if not getenv("BORGAPI_TEST_KEEP_TEMP"):
+            rmtree(self.mountpoint)
         super().tearDown()
 
     def test_repository(self):
         """Mount and unmount a repository"""
-        self.api.mount(self.repo, self.mountpoint)
+        output = self.api.mount(self.repo, self.mountpoint)
+        sleep(5)
+        self.assertTrue(output["pid"] != 0)
         self.assertFileExists(self.repo_file)
         self.api.umount(self.mountpoint)
         self.assertFileNotExists(self.repo_file)
 
     def test_archive(self):
         """Mount and unmount a archive"""
-        self.api.mount(self.archive, self.mountpoint)
+        output = self.api.mount(self.archive, self.mountpoint)
+        sleep(5)
+        self.assertTrue(output["pid"] != 0)
         self.assertFileExists(self.archive_file)
         self.api.umount(self.mountpoint)
         self.assertFileNotExists(self.archive_file)
