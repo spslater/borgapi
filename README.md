@@ -11,10 +11,10 @@ pip install borgapi
 ```
 
 Requires:
-* `borgbackup`: 1.1.16
+* `borgbackup`: 1.1.17
 * `python-dotenv`: 0.17.1
 
-Supports Python 3.6 and above.
+Supports Python 3.6 to 3.10
 
 ## Usage
 ```python

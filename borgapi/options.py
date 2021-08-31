@@ -696,7 +696,7 @@ class MountOptional(OptionsBase):
     :type o: str
     """
 
-    foreground: bool = False
+    foreground: bool = True
     o: str = None
 
     # pylint: disable=useless-super-delegation

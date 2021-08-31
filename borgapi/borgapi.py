@@ -173,6 +173,7 @@ class BorgAPI:
     ) -> dict:
         self._logger.debug("%s: %s", func.__name__, arg_list)
         arg_list.insert(0, "borgapi")
+        arg_list = [str(arg) for arg in arg_list]
         args = self.archiver.get_args(arg_list, os.environ.get("SSH_ORIGINAL_COMMAND"))
 
         prev_json = self.archiver.log_json
@@ -651,8 +652,11 @@ class BorgAPI:
         arg_list.append(mountpoint)
         arg_list.extend(paths)
 
-        self._run(arg_list, self.archiver.do_mount)
-        return self._build_result()
+        pid = os.fork()
+        if pid == 0: # child process, this one does the actual mount (in the foreground)
+            self._run(arg_list, self.archiver.do_mount)
+            return self._build_result()
+        return self._build_result(("mount", {"pid": pid, "cid": os.getpid()}))
 
     def umount(self, mountpoint: str, **options: Options) -> Output:
         """Un-mount a FUSE filesystem that was mounted with `mount`.
