@@ -26,9 +26,9 @@ api = borgapi.BorgAPI(defaults={}, options={})
 api.init("/foo/bar", make_parent_dirs=True)
 
 # Create backup 
-stdout, stderr = api.create("/foo/bar::backup", "/home", "/mnt/baz", json=True)
-print(stdout["name"]) # backup
-print(stdout["repository"]["location"]) # /foo/bar
+result = api.create("/foo/bar::backup", "/home", "/mnt/baz", json=True)
+print(result['archive']["name"]) # backup
+print(result["repository"]["location"]) # /foo/bar
 ```
 
 ### BorgAPI Init arguments
@@ -67,7 +67,7 @@ class BorgAPI(
     "json_lines": True,
 }
 ```
-* __log_level__: defualt log level, can be overriden for a specific comand by passing in another
+* __log_level__: default log level, can be overriden for a specific comand by passing in another
   level as and keyword argument
 * __log_json__: log lines written by logger are formatted as json lines, passed into the
   logging setup
