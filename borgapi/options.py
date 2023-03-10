@@ -671,6 +671,24 @@ class PruneOptional(OptionsBase):
 
 
 @dataclass
+class CompactOptional(OptionBase):
+    """Compact command options
+    
+    :param cleanup_commits: cleanup commit-only 17-byte segment files
+    :type cleanup_commits: bool
+    :param threshold: set minimum threshold for saved space in PERCENT (Default: 10)
+    :type threshold: int
+    """
+
+    cleanup_commits: bool = False
+    threshold: int = 10
+
+    # pylint: disable=useless-super-delegation
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+@dataclass
 class InfoOptional(OptionsBase):
     """Info command options
 

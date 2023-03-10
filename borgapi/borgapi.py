@@ -19,6 +19,7 @@ from .options import (
     ArchivePattern,
     CommandOptions,
     CommonOptions,
+    CompactOptional
     ExclusionInput,
     ExclusionOptions,
     ExclusionOutput,
@@ -585,6 +586,37 @@ class BorgAPI:
             result_list.append(("stats", output["stats"]))
         elif prune_options.stats and common_options.log_json:
             result_list.append(("stats", self._loads_json_lines(output["stats"])))
+
+        return self._build_result(*result_list)
+
+    def compact(self, repository: str, **options: Options) -> Output:
+        """Compact frees repository space by compacting segments.
+
+        :param repository: repository to compact
+        :type repository: str
+        :param **options: optional arguments specific to `compact` as well as archive and
+            common options; defaults to {}
+        :type **options: Options
+        :return: Stdout of command, None if no output created,
+            dict if json flag used, str otherwise
+        :rtype: Output
+        """
+        common_options = self._get_option(options, CommonOptions)
+        compact_options = self.optionals.get("compact", options)
+
+        arg_list = []
+        arg_list.extend(common_options.parse())
+        arg_list.append("compact")
+        arg_list.extend(compact_options.parse())
+        arg_list.append(repository)
+
+        output = self._run(arg_list, self.archiver.do_compact)
+
+        result_list = []
+        if common_options.log_json:
+            result_list.append(("compact", self._loads_json_lines(output["stderr"])))
+        else:
+            result_list.append(("compact", output["stderr"]))
 
         return self._build_result(*result_list)
 
