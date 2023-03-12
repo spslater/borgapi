@@ -671,7 +671,7 @@ class PruneOptional(OptionsBase):
 
 
 @dataclass
-class CompactOptional(OptionBase):
+class CompactOptional(OptionsBase):
     """Compact command options
     
     :param cleanup_commits: cleanup commit-only 17-byte segment files
@@ -869,6 +869,7 @@ class CommandOptions:
         "diff": DiffOptional,
         "delete": DeleteOptional,
         "prune": PruneOptional,
+        "compact": CompactOptional,
         "info": InfoOptional,
         "mount": MountOptional,
         "key_export": KeyExportOptional,

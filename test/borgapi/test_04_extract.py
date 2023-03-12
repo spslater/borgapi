@@ -49,4 +49,4 @@ class ExtractTests(BorgapiTests):
         """list to json"""
         output = self.api.extract(self.archive, log_json=True, list=True, dry_run=True)
         self._display("extract 2", output)
-        self.assertAnyType(output, str)
+        self.assertAnyType(output, list, dict)
