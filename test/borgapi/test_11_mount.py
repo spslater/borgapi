@@ -37,6 +37,7 @@ class MountTests(BorgapiTests):
         self.assertFileExists(self.repo_file)
         self.api.umount(self.mountpoint)
         self.assertFileNotExists(self.repo_file)
+        sleep(3)
 
     def test_02_archive(self):
         """Mount and unmount a archive"""
@@ -46,3 +47,4 @@ class MountTests(BorgapiTests):
         self.assertFileExists(self.archive_file)
         self.api.umount(self.mountpoint)
         self.assertFileNotExists(self.archive_file)
+        sleep(3)

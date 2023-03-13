@@ -65,4 +65,4 @@ class DeleteTests(BorgapiTests):
         self._create_default()
         output = self.api.delete(self.archive, stats=True, log_json=True)
         self._display("delete 2", output)
-        self.assertType(output, str)
+        self.assertType(output, list, dict)

@@ -7,10 +7,11 @@ from io import BytesIO, StringIO, TextIOWrapper
 from json import decoder, loads
 from typing import Callable, List, Optional, Tuple, Union
 
-import borg.archive
+# import borg.archive
 import borg.archiver
-import borg.helpers
-import borg.repository
+# import borg.helpers
+# import borg.repository
+from borg.logger import JsonFormatter
 from dotenv import dotenv_values, load_dotenv
 
 from .options import (
@@ -19,6 +20,7 @@ from .options import (
     ArchivePattern,
     CommandOptions,
     CommonOptions,
+    CompactOptional,
     ExclusionInput,
     ExclusionOptions,
     ExclusionOutput,
@@ -32,6 +34,8 @@ Json = Union[list, dict]
 Output = Union[str, Json, None]
 Options = Union[bool, str, int]
 
+LOG_LVL = "warning"
+
 
 class OutputCapture:
     """Capture stdout and stderr by redirecting to inmemory streams
@@ -40,14 +44,17 @@ class OutputCapture:
     :type raw: bool
     """
 
-    def __init__(self, raw: bool = False):
+    def __init__(self, raw: bool = False, log_json: bool = False, log_level: str = LOG_LVL):
         self.raw = raw
+        fmt = "%(message)s"
+        self.formatter = JsonFormatter(fmt) if log_json else logging.Formatter(fmt)
+        self.level = log_level.upper()
         self._init_stdout(raw)
         self._init_stderr()
 
-        self.formatter = logging.Formatter("%(message)s")
         self._init_list_capture()
         self._init_stats_capture()
+        self._init_repo_capture()
 
     def _init_stdout(self, raw: bool):
         self.stdout = TextIOWrapper(BytesIO()) if raw else StringIO()
@@ -62,6 +69,7 @@ class OutputCapture:
     def _init_list_capture(self):
         self.list_handler = logging.StreamHandler(StringIO())
         self.list_handler.setFormatter(self.formatter)
+        # self.list_handler.setLevel(self.level)
         self.list_handler.setLevel("INFO")
 
         self.list_logger = logging.getLogger("borg.output.list")
@@ -70,10 +78,19 @@ class OutputCapture:
     def _init_stats_capture(self):
         self.stats_handler = logging.StreamHandler(StringIO())
         self.stats_handler.setFormatter(self.formatter)
+        # self.stats_handler.setLevel(self.level)
         self.stats_handler.setLevel("INFO")
 
         self.stats_logger = logging.getLogger("borg.output.stats")
         self.stats_logger.addHandler(self.stats_handler)
+
+    def _init_repo_capture(self):
+        self.repo_handler = logging.StreamHandler(StringIO())
+        self.repo_handler.setFormatter(self.formatter)
+        self.repo_handler.setLevel(self.level)
+
+        self.repo_logger = logging.getLogger("borg.repository")
+        self.repo_logger.addHandler(self.repo_handler)
 
     # pylint: disable=no-member
     def getvalues(self) -> Union[str, bytes]:
@@ -91,12 +108,14 @@ class OutputCapture:
 
         list_value = self.list_handler.stream.getvalue()
         stats_value = self.stats_handler.stream.getvalue()
+        repo_value = self.repo_handler.stream.getvalue()
 
         return {
             "stdout": stdout_value,
             "stderr": stderr_value,
             "list": list_value,
             "stats": stats_value,
+            "repo": repo_value,
         }
 
     def close(self):
@@ -122,7 +141,7 @@ class BorgAPI:
         self,
         defaults: dict = None,
         options: dict = None,
-        log_level: str = "info",
+        log_level: str = LOG_LVL,
         log_json: bool = False,
     ):
         self.options = options or {}
@@ -130,8 +149,9 @@ class BorgAPI:
         self.archiver = borg.archiver.Archiver()
         self._previous_dotenv = []
         self._setup_logging(log_level, log_json)
+        self.log_level = log_level
 
-    def _setup_logging(self, log_level: str = "info", log_json: bool = False):
+    def _setup_logging(self, log_level: str = LOG_LVL, log_json: bool = False):
         self.logger_setup = False
         self.archiver.log_json = log_json or self.options.get("log_json", False)
         borg.archiver.setup_logging(level=log_level, is_serve=False, json=log_json)
@@ -170,6 +190,7 @@ class BorgAPI:
         arg_list: List,
         func: Callable,
         raw_bytes: bool = False,
+        log_level: str = LOG_LVL
     ) -> dict:
         self._logger.debug("%s: %s", func.__name__, arg_list)
         arg_list.insert(0, "borgapi")
@@ -180,7 +201,7 @@ class BorgAPI:
         log_json = getattr(args, "log_json", prev_json)
         self.archiver.log_json = log_json
 
-        capture = OutputCapture(raw_bytes)
+        capture = OutputCapture(raw_bytes, log_json, log_level)
         try:
             func(args)
         except Exception as e:
@@ -202,6 +223,33 @@ class BorgAPI:
     def _get_option_list(self, value: dict, options_class: OptionsBase) -> List:
         option = self._get_option(value, options_class)
         return option.parse()
+
+    def _get_log_level(self, options: dict) -> str:
+        if options.get("critical", False):
+            return "critical"
+        if options.get("error", False):
+            return "error"
+        if options.get("warning", False):
+            return "warning"
+        if options.get("info", False) or options.get("verbose", False):
+            return "info"
+        if options.get("debug", False):
+            return "debug"
+
+        if self.options.get("critical", False):
+            return "critical"
+        if self.options.get("error", False):
+            return "error"
+        if self.options.get("warning", False):
+            return "warning"
+        if self.options.get("info", False) or self.options.get("verbose", False):
+            return "info"
+        if self.options.get("debug", False):
+            return "debug"
+
+        return self.log_level
+
+
 
     def set_environ(
         self,
@@ -281,7 +329,8 @@ class BorgAPI:
         arg_list.extend(self.optionals.to_list("init", options))
         arg_list.append(repository)
 
-        return self._run(arg_list, self.archiver.do_init)
+        lvl = self._get_log_level(options)
+        return self._run(arg_list, self.archiver.do_init, log_level=lvl)
 
     def create(
         self,
@@ -316,7 +365,8 @@ class BorgAPI:
         arg_list.append(archive)
         arg_list.extend(paths)
 
-        output = self._run(arg_list, self.archiver.do_create)
+        lvl = self._get_log_level(options)
+        output = self._run(arg_list, self.archiver.do_create, log_level=lvl)
 
         result_list = []
         if create_options.stats and not create_options.json:
@@ -362,7 +412,8 @@ class BorgAPI:
         arg_list.extend(paths)
 
         raw_bytes = options.get("stdout", False)
-        output = self._run(arg_list, self.archiver.do_extract, raw_bytes=raw_bytes)
+        lvl = self._get_log_level(options)
+        output = self._run(arg_list, self.archiver.do_extract, raw_bytes=raw_bytes, log_level=lvl)
 
         result_list = []
         if extract_options.list and not common_options.log_json:
@@ -394,7 +445,8 @@ class BorgAPI:
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.extend(repository_or_archive)
 
-        self._run(arg_list, self.archiver.do_check)
+        lvl = self._get_log_level(options)
+        self._run(arg_list, self.archiver.do_check, log_level=lvl)
         return self._build_result()
 
     def rename(
@@ -422,7 +474,8 @@ class BorgAPI:
         arg_list.append(archive)
         arg_list.append(newname)
 
-        self._run(arg_list, self.archiver.do_rename)
+        lvl = self._get_log_level(options)
+        self._run(arg_list, self.archiver.do_rename, log_level=lvl)
         return self._build_result()
 
     # pylint: disable=redefined-builtin
@@ -457,7 +510,8 @@ class BorgAPI:
         arg_list.append(repository_or_archive)
         arg_list.extend(paths)
 
-        output = self._run(arg_list, self.archiver.do_list)
+        lvl = self._get_log_level(options)
+        output = self._run(arg_list, self.archiver.do_list, log_level=lvl)
 
         result_list = []
         if common_options.log_json or list_options.json or list_options.json_lines:
@@ -501,7 +555,8 @@ class BorgAPI:
         arg_list.append(archive_2)
         arg_list.extend(paths)
 
-        output = self._run(arg_list, self.archiver.do_diff)
+        lvl = self._get_log_level(options)
+        output = self._run(arg_list, self.archiver.do_diff, log_level=lvl)
 
         result_list = []
         if common_options.log_json or diff_options.json_lines:
@@ -541,7 +596,8 @@ class BorgAPI:
         arg_list.append(repository_or_archive)
         arg_list.extend(archives)
 
-        output = self._run(arg_list, self.archiver.do_delete)
+        lvl = self._get_log_level(options)
+        output = self._run(arg_list, self.archiver.do_delete, log_level=lvl)
 
         result_list = []
         if delete_options.stats and common_options.log_json:
@@ -574,7 +630,8 @@ class BorgAPI:
         arg_list.extend(self._get_option_list(options, ArchivePattern))
         arg_list.append(repository)
 
-        output = self._run(arg_list, self.archiver.do_prune)
+        lvl = self._get_log_level(options)
+        output = self._run(arg_list, self.archiver.do_prune, log_level=lvl)
 
         result_list = []
         if prune_options.list and not common_options.log_json:
@@ -585,6 +642,38 @@ class BorgAPI:
             result_list.append(("stats", output["stats"]))
         elif prune_options.stats and common_options.log_json:
             result_list.append(("stats", self._loads_json_lines(output["stats"])))
+
+        return self._build_result(*result_list)
+
+    def compact(self, repository: str, **options: Options) -> Output:
+        """Compact frees repository space by compacting segments.
+
+        :param repository: repository to compact
+        :type repository: str
+        :param **options: optional arguments specific to `compact` as well as archive and
+            common options; defaults to {}
+        :type **options: Options
+        :return: Stdout of command, None if no output created,
+            dict if json flag used, str otherwise
+        :rtype: Output
+        """
+        common_options = self._get_option(options, CommonOptions)
+        compact_options = self.optionals.get("compact", options)
+
+        arg_list = []
+        arg_list.extend(common_options.parse())
+        arg_list.append("compact")
+        arg_list.extend(compact_options.parse())
+        arg_list.append(repository)
+
+        lvl = self._get_log_level(options)
+        output = self._run(arg_list, self.archiver.do_compact, log_level=lvl)
+
+        result_list = []
+        if common_options.log_json:
+            result_list.append(("compact", self._loads_json_lines(output["repo"])))
+        else:
+            result_list.append(("compact", output["repo"]))
 
         return self._build_result(*result_list)
 
@@ -610,7 +699,8 @@ class BorgAPI:
         arg_list.extend(self._get_option_list(options, ArchiveOutput))
         arg_list.append(repository_or_archive)
 
-        output = self._run(arg_list, self.archiver.do_info)
+        lvl = self._get_log_level(options)
+        output = self._run(arg_list, self.archiver.do_info, log_level=lvl)
 
         result_list = []
         if info_options.json:
@@ -654,7 +744,8 @@ class BorgAPI:
 
         pid = os.fork()
         if pid == 0: # child process, this one does the actual mount (in the foreground)
-            self._run(arg_list, self.archiver.do_mount)
+            lvl = self._get_log_level(options)
+            self._run(arg_list, self.archiver.do_mount, log_level=lvl)
             return self._build_result()
         return self._build_result(("mount", {"pid": pid, "cid": os.getpid()}))
 
@@ -675,7 +766,8 @@ class BorgAPI:
         arg_list.append("umount")
         arg_list.append(mountpoint)
 
-        self._run(arg_list, self.archiver.do_umount)
+        lvl = self._get_log_level(options)
+        self._run(arg_list, self.archiver.do_umount, log_level=lvl)
         return self._build_result()
 
     def key_change_passphrase(self, repository: str, **options: Options) -> Output:
@@ -695,7 +787,8 @@ class BorgAPI:
         arg_list.extend(["key", "change-passphrase"])
         arg_list.append(repository)
 
-        self._run(arg_list, self.archiver.do_change_passphrase)
+        lvl = self._get_log_level(options)
+        self._run(arg_list, self.archiver.do_change_passphrase, log_level=lvl)
         return self._build_result()
 
     def key_export(
@@ -724,7 +817,8 @@ class BorgAPI:
         arg_list.append(repository)
         arg_list.append(path)
 
-        self._run(arg_list, self.archiver.do_key_export)
+        lvl = self._get_log_level(options)
+        self._run(arg_list, self.archiver.do_key_export, log_level=lvl)
         return self._build_result()
 
     def key_import(
@@ -753,7 +847,8 @@ class BorgAPI:
         arg_list.append(repository)
         arg_list.append(path)
 
-        self._run(arg_list, self.archiver.do_key_import)
+        lvl = self._get_log_level(options)
+        self._run(arg_list, self.archiver.do_key_import, log_level=lvl)
         return self._build_result()
 
     def upgrade(self, repository: str, **options: Options) -> Output:
@@ -774,7 +869,8 @@ class BorgAPI:
         arg_list.extend(self.optionals.to_list("upgrade", options))
         arg_list.append(repository)
 
-        self._run(arg_list, self.archiver.do_upgrade)
+        lvl = self._get_log_level(options)
+        self._run(arg_list, self.archiver.do_upgrade, log_level=lvl)
         return self._build_result()
 
     def export_tar(
@@ -811,10 +907,12 @@ class BorgAPI:
         arg_list.append(file)
         arg_list.extend(paths)
 
+        lvl = self._get_log_level(options)
         output = self._run(
             arg_list,
             self.archiver.do_export_tar,
             raw_bytes=(file == "-"),
+            log_level=lvl,
         )
 
         result_list = []
@@ -837,7 +935,8 @@ class BorgAPI:
         arg_list.append("serve")
         arg_list.extend(self.optionals.to_list("serve", options))
 
-        self._run(arg_list, self.archiver.do_serve)
+        lvl = self._get_log_level(options)
+        self._run(arg_list, self.archiver.do_serve, log_level=lvl)
         return self._build_result()
 
     def config(
@@ -869,9 +968,10 @@ class BorgAPI:
         arg_list.extend(self._get_option_list(options, ExclusionOutput))
         arg_list.append(repository)
 
+        lvl = self._get_log_level(options)
         result_list = []
         if not changes:
-            output = self._run(arg_list, self.archiver.do_config)
+            output = self._run(arg_list, self.archiver.do_config, log_level=lvl)
             if config_options.list:
                 result_list.append(("list", output["stdout"]))
 
@@ -879,10 +979,10 @@ class BorgAPI:
         for change in changes:
             if isinstance(change, tuple):
                 change = arg_list + [change[0], change[1]]
-                self._run(change, self.archiver.do_config)
+                self._run(change, self.archiver.do_config, log_level=lvl)
             else:
                 change = arg_list + [change]
-                output = self._run(change, self.archiver.do_config)
+                output = self._run(change, self.archiver.do_config, log_level=lvl)
                 change_result.append(output["stdout"])
             result_list.append(("changes", change_result))
 
@@ -917,7 +1017,8 @@ class BorgAPI:
         arg_list.append(command)
         arg_list.extend(args)
 
-        self._run(arg_list, self.archiver.do_with_lock)
+        lvl = self._get_log_level(options)
+        self._run(arg_list, self.archiver.do_with_lock, log_level=lvl)
         return self._build_result()
 
     def break_lock(self, repository: str, **options: Options) -> Output:
@@ -937,7 +1038,8 @@ class BorgAPI:
         arg_list.append("break-lock")
         arg_list.append(repository)
 
-        self._run(arg_list, self.archiver.do_break_lock)
+        lvl = self._get_log_level(options)
+        self._run(arg_list, self.archiver.do_break_lock, log_level=lvl)
         return self._build_result()
 
     def benchmark_crud(
@@ -967,7 +1069,8 @@ class BorgAPI:
         arg_list.append(repository)
         arg_list.append(path)
 
-        output = self._run(arg_list, self.archiver.do_benchmark_crud)
+        lvl = self._get_log_level(options)
+        output = self._run(arg_list, self.archiver.do_benchmark_crud, log_level=lvl)
 
         result_list = [("benchmark", output["stdout"])]
         return self._build_result(*result_list)
