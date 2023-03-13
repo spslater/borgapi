@@ -11,10 +11,10 @@ pip install borgapi
 ```
 
 Requires:
-* `borgbackup`: 1.1.17
-* `python-dotenv`: 0.17.1
+* `borgbackup`: 1.2.3
+* `python-dotenv`: 1.0.0
 
-Supports Python 3.6 to 3.10
+Supports Python 3.8 to 3.11
 
 ## Usage
 ```python
@@ -36,7 +36,7 @@ print(result["repository"]["location"]) # /foo/bar
 class BorgAPI(
     defaults: dict = None,
     options: dict = None,
-    log_level: str = "info",
+    log_level: str = "warning",
     log_json: bool = False
 )
 ```
@@ -99,6 +99,14 @@ will be used, which is searching for a ".env" file somewhere above in the curren
 [Environment Variables](https://borgbackup.readthedocs.io/en/stable/usage/general.html#environment-variables)
 used by `borgbackup`.
 
+#### IMPORTANT
+For commands that borg requires a confirmation on if no environment variable is given, the api will
+become stuck as it waits for a `yes` or `no` answer.
+* BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK
+* BORG_RELOCATED_REPO_ACCESS_IS_OK
+* BORG_CHECK_I_KNOW_WHAT_I_AM_DOING
+* BORG_DELETE_I_KNOW_WHAT_I_AM_DOING
+
 ### Removing Environment Variables
 If you want to unset a variable so it doesn't get used for another command you can use the
 `unset_environ` method. It'll remove any variables passed in from the current environment.
@@ -160,6 +168,7 @@ api.diff(
 * diff
 * delete
 * prune
+* compact
 * info
 * mount
 * umount
@@ -227,6 +236,10 @@ Commands not listed return no output (None)
 - prune:
   - list: `--list`, `--log-json`
   - stats: `--stats`, `--log-json`
+- compact:
+  - returns bare value, when verbose or info is set
+  - verbose: `--verbose`, `-v`
+  - info: `--info`
 - info
   - always returns bare value
 - export tar

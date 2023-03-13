@@ -7,10 +7,7 @@ from io import BytesIO, StringIO, TextIOWrapper
 from json import decoder, loads
 from typing import Callable, List, Optional, Tuple, Union
 
-# import borg.archive
 import borg.archiver
-# import borg.helpers
-# import borg.repository
 from borg.logger import JsonFormatter
 from dotenv import dotenv_values, load_dotenv
 
@@ -20,7 +17,6 @@ from .options import (
     ArchivePattern,
     CommandOptions,
     CommonOptions,
-    CompactOptional,
     ExclusionInput,
     ExclusionOptions,
     ExclusionOutput,
@@ -44,7 +40,12 @@ class OutputCapture:
     :type raw: bool
     """
 
-    def __init__(self, raw: bool = False, log_json: bool = False, log_level: str = LOG_LVL):
+    def __init__(
+        self,
+        raw: bool = False,
+        log_json: bool = False,
+        log_level: str = LOG_LVL,
+    ):
         self.raw = raw
         fmt = "%(message)s"
         self.formatter = JsonFormatter(fmt) if log_json else logging.Formatter(fmt)
@@ -190,7 +191,7 @@ class BorgAPI:
         arg_list: List,
         func: Callable,
         raw_bytes: bool = False,
-        log_level: str = LOG_LVL
+        log_level: str = LOG_LVL,
     ) -> dict:
         self._logger.debug("%s: %s", func.__name__, arg_list)
         arg_list.insert(0, "borgapi")
@@ -225,31 +226,30 @@ class BorgAPI:
         return option.parse()
 
     def _get_log_level(self, options: dict) -> str:
+        lvl = self.log_level
         if options.get("critical", False):
-            return "critical"
-        if options.get("error", False):
-            return "error"
-        if options.get("warning", False):
-            return "warning"
-        if options.get("info", False) or options.get("verbose", False):
-            return "info"
-        if options.get("debug", False):
-            return "debug"
+            lvl = "critical"
+        elif options.get("error", False):
+            lvl = "error"
+        elif options.get("warning", False):
+            lvl = "warning"
+        elif options.get("info", False) or options.get("verbose", False):
+            lvl = "info"
+        elif options.get("debug", False):
+            lvl = "debug"
 
-        if self.options.get("critical", False):
-            return "critical"
-        if self.options.get("error", False):
-            return "error"
-        if self.options.get("warning", False):
-            return "warning"
-        if self.options.get("info", False) or self.options.get("verbose", False):
-            return "info"
-        if self.options.get("debug", False):
-            return "debug"
+        elif self.options.get("critical", False):
+            lvl = "critical"
+        elif self.options.get("error", False):
+            lvl = "error"
+        elif self.options.get("warning", False):
+            lvl = "warning"
+        elif self.options.get("info", False) or self.options.get("verbose", False):
+            lvl = "info"
+        elif self.options.get("debug", False):
+            lvl = "debug"
 
-        return self.log_level
-
-
+        return lvl
 
     def set_environ(
         self,
@@ -413,7 +413,12 @@ class BorgAPI:
 
         raw_bytes = options.get("stdout", False)
         lvl = self._get_log_level(options)
-        output = self._run(arg_list, self.archiver.do_extract, raw_bytes=raw_bytes, log_level=lvl)
+        output = self._run(
+            arg_list,
+            self.archiver.do_extract,
+            raw_bytes=raw_bytes,
+            log_level=lvl,
+        )
 
         result_list = []
         if extract_options.list and not common_options.log_json:
@@ -743,7 +748,8 @@ class BorgAPI:
         arg_list.extend(paths)
 
         pid = os.fork()
-        if pid == 0: # child process, this one does the actual mount (in the foreground)
+        # child process, this one does the actual mount (in the foreground)
+        if pid == 0:
             lvl = self._get_log_level(options)
             self._run(arg_list, self.archiver.do_mount, log_level=lvl)
             return self._build_result()
