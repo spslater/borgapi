@@ -673,7 +673,7 @@ class PruneOptional(OptionsBase):
 @dataclass
 class CompactOptional(OptionsBase):
     """Compact command options
-    
+
     :param cleanup_commits: cleanup commit-only 17-byte segment files
     :type cleanup_commits: bool
     :param threshold: set minimum threshold for saved space in PERCENT (Default: 10)
