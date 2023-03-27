@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="borgapi",
-    version="0.6.0",
+    version="0.6.1",
     author="Sean Slater",
     author_email="seanslater@whatno.io",
     description="Wrapper for borgbackup to easily use in code",
@@ -15,7 +15,7 @@ setuptools.setup(
     url="https://github.com/spslater/borgapi",
     license="MIT License",
     packages=setuptools.find_packages(),
-    install_requires=["borgbackup[llfuse]==1.2.3", "python-dotenv>=1.0.0"],
+    install_requires=["borgbackup[llfuse]==1.2.4", "python-dotenv>=1.0.0"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Programming Language :: Python :: 3",
