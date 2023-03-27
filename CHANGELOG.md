@@ -6,17 +6,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.0] - 2021-06-17
-### Fixed
-- Missing benchmark test added back in
+## [0.6.1] - 2023-03-27
+### Changed
+- Borg version bumped to 1.2.4
+- Dotenv version bumped to 1.0.0 in "requirements.txt"
 
+## [0.6.0] - 2023-03-13
+### Added
+- Borg command `compact`
+
+### Changed
+- Borg version bumped to 1.2.3
+- Dotenv version bumped to 1.0.0
+- Dropped support for Python 3.6 and 3.7
+- Added support for Python 3.11
+- Default log level is "warning" instead of "info"
+- Capturing json output uses Borgs JsonFormatter for the logger
+- Log level is passed for each command so individual command calls can accurately refelct wanted
+  output, before if `log_json` was used, it ignored log level
+
+### Fixed
+- Mounting / Unmounting tests failing due to OS taking some time, added a longer sleep to prevent
+  them from failing
+- `fuse` in the optional install requirements was the incorrect name of the package,
+  changed to `llfuse`
+- Readme reflects acutally current return values for commands, had still referenced an old style
+
+## [0.5.0] - 2021-06-17
 ### Changed
 - Commands not returns a single value
   - If multiple values are captured, a `dict` is returned with relevant key names
   - Single value is returned by itself
   - No captured value returns `None`
 
+### Fixed
+- Missing benchmark test added back in
+
 ## [0.4.0] - 2021-06-11
+### Changed
+- Type hint for command returns changed to custom type hint `BorgRunOutput` which is a tuple
+  `Union[str, dict, None]` for stdout and stderr capture
+
 ### Fixed
 - `change`
   - `changes` argument now positional magic variable. (`*changes`)
@@ -30,18 +60,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ExclusionOptions`:
   - `pattern` now processed as a list
 
-### Changed
-- Type hint for command returns changed to custom type hint `BorgRunOutput` which is a tuple
-  `Union[str, dict, None]` for stdout and stderr capture
-
 ## [0.3.1] - 2021-06-09
+### Changed
+- Commands now return captured `stdout` and `stderr` instead of just `stdout`
+
 ### Fixed
 - `borg` removes the first value from the args list. The list being passed in started with the
   command name (eg `init`, `create`, `list`) so that was getting removed. Added `borgapi` as the
   first argument for it to get removed when the command is called now.
-
-### Changed
-- Commands now return captured `stdout` and `stderr` instead of just `stdout`
 
 ## [0.2.1] - 2021-05-15
 ### Added

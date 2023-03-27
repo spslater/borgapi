@@ -1,2 +1,2 @@
-borgbackup[llfuse]==1.2.3
-python-dotenv==0.17.1
+borgbackup[llfuse]==1.2.4
+python-dotenv==1.0.0
