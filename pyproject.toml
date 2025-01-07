@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "borgapi"
+version = "0.7.0"
+author = "Sean Slater"
+author_email = "seanslater@whatno.io"
+description = "Wrapper for borgbackup to easily use in code"
+readme = "README.md"
+url = "https://github.com/spslater/borgapi"
+license = "MIT License"
+license-files = ["LICENSE"]
+python_requires = ">=3.9"
+dependencies = [
+    "borgbackup[llfuse]~=1.4.0",
+    "python-dotenv~=1.0.0",
+]
+keywords = ["borgbackup", "backup", "api"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Utilities",
+    "Topic :: System :: Archiving :: Backup",
+]
+
+[project.urls]
+homepage = "https://github.com/spslater/borgapi"
+documentation = "https://github.com/spslater/borgapi/blob/master/README.md"
+repository = "https://github.com/spslater/borgapi.git"
+issues = "https://github.com/spslater/borgapi/issues"
+changelog = "https://github.com/spslater/borgapi/blob/master/CHANGELOG.md"
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "D"]
+# A regular expression matching the name of dummy variables (i.e. expected to not be used).
+dummy-variable-rgx = "_+$|(_[a-zA-Z0-9_]*[a-zA-Z0-9]+?$)|dummy|^ignored_|^unused"
+
+
+[tool.ruff.lint.pydocstyle]
+# waiting for `sphinx` convention to be available
+convention = "pep257"
+
+[tool.ruff.lint.pylint]
+# Maximum number of arguments for function / method.
+max-args = 5
+# Maximum number of boolean expressions in an if statement (see R0916).
+max-bool-expr = 5
+# Maximum number of branch for function / method body.
+max-branches = 12
+# Maximum number of locals for function / method body.
+max-locals = 15
+# Maximum number of public methods for a class (see R0904).
+max-public-methods = 20
+# Maximum number of return / yield for function / method body.
+max-returns = 6
+# Maximum number of statements in function / method body.
+max-statements = 50
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true

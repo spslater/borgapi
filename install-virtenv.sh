@@ -11,32 +11,25 @@ eval "$(pyenv virtualenv-init -)"
 function update() {
     pyenv activate "$1"
     python -m pip install --upgrade pip
-    python -m pip install black pylint isort build twine
+    python -m pip install ruff~=0.9.1
     if [ -e "requirements.txt" ]; then
         python -m pip install -r requirements.txt --upgrade
     fi
     pyenv deactivate
 }
 
-## PYTHON 3.8 ##
-if test -n $(pyenv versions | grep "borglatest-3.8"); then
-    pyenv uninstall "borglatest-3.8"
-fi
-pyenv virtualenv "3.8.16"  "borglatest-3.8"
-update "borglatest-3.8"
-
 ## PYTHON 3.9 ##
 if test -n $(pyenv versions | grep "borglatest-3.9"); then
     pyenv uninstall "borglatest-3.9"
 fi
-pyenv virtualenv "3.9.16"  "borglatest-3.9"
+pyenv virtualenv "3.9.21"  "borglatest-3.9"
 update "borglatest-3.9"
 
 ## PYTHON 3.10 ##
 if test -n $(pyenv versions | grep "borglatest-3.10"); then
     pyenv uninstall "borglatest-3.10"
 fi
-pyenv virtualenv "3.10.10" "borglatest-3.10"
+pyenv virtualenv "3.10.16" "borglatest-3.10"
 update "borglatest-3.10"
 
 ## PYTHON 3.11 ##
@@ -46,4 +39,16 @@ fi
 pyenv virtualenv "3.11.2"  "borglatest-3.11"
 update "borglatest-3.11"
 
+## PYTHON 3.12 ##
+if test -n $(pyenv versions | grep "borglatest-3.12"); then
+    pyenv uninstall "borglatest-3.12"
+fi
+pyenv virtualenv "3.12.8"  "borglatest-3.12"
+update "borglatest-3.12"
 
+## PYTHON 3.13 ##
+if test -n $(pyenv versions | grep "borglatest-3.13"); then
+    pyenv uninstall "borglatest-3.13"
+fi
+pyenv virtualenv "3.13.1"  "borglatest-3.13"
+update "borglatest-3.13"

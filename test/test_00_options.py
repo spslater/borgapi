@@ -1,4 +1,5 @@
-"""Test the Options module"""
+"""Test the Options module."""
+
 import unittest
 
 from borgapi import CommonOptions, ExclusionOptions
@@ -6,10 +7,10 @@ from borgapi.options import OptionsBase
 
 
 class OptionsTests(unittest.TestCase):
-    """Tests for the Options Dataclasses"""
+    """Test the Options Dataclasses."""
 
     def test_convert(self):
-        """Converting the name adds the dashes to the front and replaces underscores with dashes"""
+        """Convert the name adds the dashes to the front and replaces underscores with dashes."""
         name = "test_name"
         converted = OptionsBase.convert_name(name)
         self.assertEqual(
@@ -18,9 +19,8 @@ class OptionsTests(unittest.TestCase):
             "Name conversion does not produce expected ouput",
         )
 
-    # pylint: disable=no-member,protected-access
     def test_defaults(self):
-        """Defaults returns all the dataclass fields"""
+        """Defaults returns all the dataclass fields."""
         common = CommonOptions._defaults()
         exclusion = ExclusionOptions._defaults()
         self.assertEqual(
@@ -35,7 +35,7 @@ class OptionsTests(unittest.TestCase):
         )
 
     def test_parse(self):
-        """Parsing produces formatted args list from class instance"""
+        """Parsing produces formatted args list from class instance."""
         expected_args = ["--warning", "--progress", "--log-json"]
         common_args = CommonOptions(warning=True, progress=True, log_json=True).parse()
         self.assertListEqual(
