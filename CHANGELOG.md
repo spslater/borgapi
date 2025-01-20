@@ -6,6 +6,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-01-20
+## Added
+- Borg command `recreate` and `import-tar` [#24]
+- Async class! Now you can view output logs while the command is running and not only 
+  when it has completed. This makes the `--progress` flag not useless. [#21]
+- Support for Python version 3.12 and 3.13
+- Add `environ` argument to the `BorgAPI` constructor
+- Load default environmental variables to prevent the api from freezing while waiting for
+  user input. They won't be overriden if they are already set. See README for list of 
+  variables that get set and their defaults. [#20]
+
+### Changed
+- Borg version bumped to 1.4.0
+- Changed the version requirements for `borgbackup` and `python-dotenv` to use compatible
+  release clause (`~=`) instead of a version matching (`==`) clause. This should allow any
+  security patches published to still work while any minor chagnes will need to be verified. 
+- Using `ruff` to lint and format now. Previously used `pylint` to lint and `black` and
+  `isort` to format.
+
+### Removed
+- No longer support Python 3.8 because borgbackup no longer supports that version.
+
 ## [0.6.1] - 2023-03-27
 ### Changed
 - Borg version bumped to 1.2.4

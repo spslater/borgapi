@@ -1,4 +1,4 @@
-"""Option Dataclasses"""
+"""Option Dataclasses."""
 
 import logging
 import re
@@ -23,7 +23,7 @@ __all__ = [
 
 @dataclass
 class _DefaultField:
-    """Field info in options classes"""
+    """Field info in options classes."""
 
     name: str
     type: type
@@ -32,7 +32,7 @@ class _DefaultField:
 
 @dataclass
 class OptionsBase:
-    """Holds all the shared methods for the subclasses
+    """Holds all the shared methods for the subclasses.
 
     Every subclass should use this __init__ method becuase it will only set the values that the
     dataclass supports and ignore the ones not part of it. This way the same options dict can be
@@ -40,6 +40,7 @@ class OptionsBase:
     """
 
     def __init__(self, **kwargs):
+        """Set options to be used for the subclasses."""
         default = self._defaults()
         for option in kwargs:
             if option in default:
@@ -47,11 +48,10 @@ class OptionsBase:
 
     @staticmethod
     def convert_name(value: str) -> str:
-        """Add flag marker and replace underscores with dashes in name"""
+        """Add flag marker and replace underscores with dashes in name."""
         return "--" + value.replace("_", "-")
 
     def _field_set(self, field: str) -> bool:
-        # pylint: disable=no-member
         default = self.__dataclass_fields__.get(field).default
         set_value = getattr(self, field)
         return set_value != default
@@ -67,7 +67,6 @@ class OptionsBase:
             else:
                 logger.warning("[DEPRECATED] %s, not being replaced", old_field)
 
-    # pylint: disable=no-member
     @classmethod
     def _defaults(cls) -> Set[str]:
         defaults = set()
@@ -83,13 +82,13 @@ class OptionsBase:
             return issubclass(type_.__origin__, list)
 
     def parse(self) -> List[Optional[Union[str, int]]]:
-        """Turn options into list for argv
+        """Turn options into list for argv.
 
         :return: options for the command line
         :rtype: List[Optional[Union[str, int]]]
         """
         args = []
-        # pylint: disable=no-member
+
         for key, value in self.__dataclass_fields__.items():
             attr = getattr(self, key)
             if attr is not None and value.default != attr:
@@ -107,10 +106,9 @@ class OptionsBase:
         return args
 
 
-# pylint: disable=too-many-instance-attributes
 @dataclass
 class CommonOptions(OptionsBase):
-    """Common Options for all Borg commands
+    """Common Options for all Borg commands.
 
     :param critical: work on log level CRITICAL
     :type critical: bool
@@ -174,8 +172,8 @@ class CommonOptions(OptionsBase):
     debug_profile: str = None
     rsh: str = None
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the common options for all commands."""
         super().__init__(**kwargs)
 
         if isinstance(self.debug_topic, str):
@@ -186,7 +184,7 @@ class CommonOptions(OptionsBase):
 
 @dataclass
 class ExclusionOptions(OptionsBase):
-    """Options for excluding various files from backup
+    """Options for excluding various files from backup.
 
     :param exclude: exclude paths matching PATTERN
     :type exclude: List[str]
@@ -204,8 +202,8 @@ class ExclusionOptions(OptionsBase):
     pattern: List[str] = None
     patterns_from: str = None
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the exclusion options for many commands."""
         super().__init__(**kwargs)
 
         if isinstance(self.exclude, str):
@@ -216,7 +214,7 @@ class ExclusionOptions(OptionsBase):
 
 @dataclass
 class ExclusionInput(ExclusionOptions):
-    """Exclusion Options when inputing data to the archive
+    """Exclusion Options when inputing data to the archive.
 
     :param exclude_caches: exclude directories that contain a CACHEDIR.TAG file
         (http://www.bford.info/cachedir/spec.html)
@@ -239,8 +237,8 @@ class ExclusionInput(ExclusionOptions):
     keep_tag_files: bool = False
     exclude_nodump: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the exclusion options for input for many commands."""
         super().__init__(**kwargs)
 
         if isinstance(self.exclude_if_present, str):
@@ -249,7 +247,7 @@ class ExclusionInput(ExclusionOptions):
 
 @dataclass
 class ExclusionOutput(ExclusionOptions):
-    """Exclusion Options when outputing data in the archive
+    """Exclusion Options when outputing data in the archive.
 
     :param strip_componts: Remove the specified number of leading path elements. Paths with fewer
         elements will be silently skipped
@@ -258,14 +256,14 @@ class ExclusionOutput(ExclusionOptions):
 
     strip_componts: int = None
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the exclusion options for output for many commands."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class FilesystemOptions(OptionsBase):
-    """Options for how to handle filesystem attributes
+    """Options for how to handle filesystem attributes.
 
     :param one_file_system: stay in the same file system and do not store mount points of other
         file systems. This might behave different from your expectations, see the docs.
@@ -306,23 +304,23 @@ class FilesystemOptions(OptionsBase):
     files_cache: str = None
     read_special: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the filesystem options for many commands."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class ArchiveOptions(OptionsBase):
-    """Options related to the archive"""
+    """Options related to the archive."""
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the archive options for many commands."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class ArchiveInput(ArchiveOptions):
-    """Archive Options when inputing data to the archive
+    """Archive Options when inputing data to the archive.
 
     :param comment: add a comment text to the archive
     :type comment: str
@@ -345,14 +343,14 @@ class ArchiveInput(ArchiveOptions):
     chunker_params: str = None
     compression: str = None
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the input options for archives for many commands."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class ArchivePattern(ArchiveOptions):
-    """Archive Options when outputing data in the archive
+    """Archive Options when outputing data in the archive.
 
     :param prefix: only consider archive names starting with this prefix.
     :type prefix: str
@@ -365,14 +363,14 @@ class ArchivePattern(ArchiveOptions):
     prefix: str = None
     glob_archives: str = None
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the output pattern options for archives many commands."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class ArchiveOutput(ArchivePattern):
-    """Archive options when filtering output
+    """Archive options when filtering output.
 
     :param sort_by: Comma-separated list of sorting keys; valid keys are: timestamp, name, id;
         default is: timestamp
@@ -387,14 +385,14 @@ class ArchiveOutput(ArchivePattern):
     first: int = None
     last: int = None
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the output options for archives many commands."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class InitOptional(OptionsBase):
-    """Init command options
+    """Init command options.
 
     :param append_only: create an append-only mode repository
     :type append_only: bool
@@ -410,15 +408,14 @@ class InitOptional(OptionsBase):
     storage_quota: str = None
     make_parent_dirs: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `init` command."""
         super().__init__(**kwargs)
 
 
-# pylint: disable=too-many-instance-attributes
 @dataclass
 class CreateOptional(OptionsBase):
-    """Create command options
+    """Create command options.
 
     :param dry_run: do not create a backup archive
     :type dry_run: bool
@@ -462,14 +459,14 @@ class CreateOptional(OptionsBase):
     stdin_group: str = None
     stdin_mode: str = None
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `create` command."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class ExtractOptional(OptionsBase):
-    """Extract command options
+    """Extract command options.
 
     :param list: output verbose list of items (files, dirs, …)
     :type list: bool
@@ -498,14 +495,14 @@ class ExtractOptional(OptionsBase):
     stdout: bool = False
     sparse: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `extract` command."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class CheckOptional(OptionsBase):
-    """Check command options
+    """Check command options.
 
     :param repository_only: only perform repository checks
     :type repository_only: bool
@@ -526,14 +523,14 @@ class CheckOptional(OptionsBase):
     repair: bool = False
     save_space: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `check` command."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class ListOptional(OptionsBase):
-    """List command options
+    """List command options.
 
     :param short: only print file/directory names, nothing else
     :type short: bool
@@ -557,14 +554,14 @@ class ListOptional(OptionsBase):
     json: bool = False
     json_lines: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `list` command."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class DiffOptional(OptionsBase):
-    """Diff command options
+    """Diff command options.
 
     :param numeric_owner: only consider numeric user and group identifiers
     :type numeric_owner: bool
@@ -581,8 +578,8 @@ class DiffOptional(OptionsBase):
     sort: bool = False
     json_lines: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `diff` command."""
         super().__init__(**kwargs)
 
         self._log_deprecated("numeric_owner", "numeric_ids")
@@ -590,7 +587,7 @@ class DiffOptional(OptionsBase):
 
 @dataclass
 class DeleteOptional(OptionsBase):
-    """Delete command options
+    """Delete command options.
 
     :param dry_run: do not change repository
     :type dry_run: bool
@@ -605,20 +602,22 @@ class DeleteOptional(OptionsBase):
     """
 
     dry_run: bool = False
+    list: bool = False
     stats: bool = False
     cache_only: bool = False
     force: bool = False
+    keep_security_info: bool = False
     save_space: bool = False
+    checkpoint_interval: int = 1800
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `delete` command."""
         super().__init__(**kwargs)
 
 
-# pylint: disable=too-many-instance-attributes
 @dataclass
 class PruneOptional(OptionsBase):
-    """Prune command options
+    """Prune command options.
 
     :param dry_run: do not change repository
     :type dry_run: bool
@@ -665,14 +664,14 @@ class PruneOptional(OptionsBase):
     keep_yearly: int = None
     save_space: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `prune` command."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class CompactOptional(OptionsBase):
-    """Compact command options
+    """Compact command options.
 
     :param cleanup_commits: cleanup commit-only 17-byte segment files
     :type cleanup_commits: bool
@@ -683,14 +682,14 @@ class CompactOptional(OptionsBase):
     cleanup_commits: bool = False
     threshold: int = 10
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `compact` command."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class InfoOptional(OptionsBase):
-    """Info command options
+    """Info command options.
 
     :param json: format output as JSON
     :type json: bool
@@ -698,15 +697,14 @@ class InfoOptional(OptionsBase):
 
     json: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `info` command."""
         super().__init__(**kwargs)
 
 
-# pylint: disable=invalid-name
 @dataclass
 class MountOptional(OptionsBase):
-    """Mount command options
+    """Mount command options.
 
     :param foreground: stay in foreground, do not daemonize
     :type foreground: bool
@@ -717,14 +715,14 @@ class MountOptional(OptionsBase):
     foreground: bool = True
     o: str = None
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `mount` command."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class KeyExportOptional(OptionsBase):
-    """Key Export command options
+    """Key Export command options.
 
     :param paper: create an export suitable for printing and later type-in
     :type paper: bool
@@ -735,14 +733,14 @@ class KeyExportOptional(OptionsBase):
     paper: bool = False
     qr_html: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `key export` command."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class KeyImportOptional(OptionsBase):
-    """Key Import command options
+    """Key Import command options.
 
     :param paper: interactively import from a backup done with `paper`
     :type paper: bool
@@ -750,14 +748,14 @@ class KeyImportOptional(OptionsBase):
 
     paper: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `key import` command."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class UpgradeOptional(OptionsBase):
-    """Upgrade command options
+    """Upgrade command options.
 
     :param dry_run: do not change repository
     :type dry_run: bool
@@ -778,14 +776,79 @@ class UpgradeOptional(OptionsBase):
     tam: bool = False
     disable_tam: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `upgrade` command."""
+        super().__init__(**kwargs)
+
+
+@dataclass
+class RecreateOptional(OptionsBase):
+    """Recreate command options.
+
+    :param list: output verbose list of items (files, dirs, …)
+    :type list: bool
+    :param filter: only display items with the given status characters
+        (listed in borg create --help)
+    :type filter: str
+    :param dry_run: do not change anything
+    :type dry_run: bool
+    :param stats: print statistics at end
+    :type stats: bool
+    :param target: create a new archive with the name ARCHIVE, do not replace existing archive
+        (only applies for a single archive)
+    :type target: str
+    :param recompress: recompress data chunks according to MODE and --compression. Possible modes
+        are `if-different`, `always`, `never`. If no MODE is given, if-different will be used.
+    :type recompress: str
+    """
+
+    list: bool = False
+    filter: str = None
+    dry_run: bool = False
+    stats: bool = False
+
+    # Custom Archive Options
+    target: str = None
+    recompress: str = None
+
+    def __init__(self, **kwargs):
+        """Set the options for the `recreate` command."""
+        super().__init__(**kwargs)
+
+
+@dataclass
+class ImportTarOptional(OptionsBase):
+    """Import Tar command options.
+
+    :param tar_filter: filter program to pipe data through
+    :type tar_filter: str
+    :param stats: print statistics for the created archive
+    :type stats: bool
+    :param list: output verbose list of items (files, dirs, …)
+    :type list: bool
+    :param filter: only display items with the given status characters
+    :type filter: str
+    :param json: output stats as JSON. Implies `stats`
+    :type json: bool
+    :param ignore_zeros: ignore zero-filled blocks in the input tarball
+    :type ignore_zeros: bool
+    """
+
+    tar_filter: str = None
+    stats: bool = False
+    list: bool = False
+    filter: str = None
+    json: bool = False
+    ignore_zeros: bool = False
+
+    def __init__(self, **kwargs):
+        """Set the options for the `import-tar` command."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class ExportTarOptional(OptionsBase):
-    """Export Tar command options
+    """Export Tar command options.
 
     :param tar_filter: filter program to pipe data through
     :type tar_filter: str
@@ -796,14 +859,14 @@ class ExportTarOptional(OptionsBase):
     tar_filter: str = None
     list: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `export-tar` command."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class ServeOptional(OptionsBase):
-    """Serve command options
+    """Serve command options.
 
     :param restrict_to_path: restrict repository access to PATH.
         Can be specified multiple times to allow the client access to several directories.
@@ -831,14 +894,14 @@ class ServeOptional(OptionsBase):
     append_only: bool = False
     storage_quota: str = None
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `serve` command."""
         super().__init__(**kwargs)
 
 
 @dataclass
 class ConfigOptional(OptionsBase):
-    """Config command options
+    """Config command options.
 
     :param cache: get and set values from the repo cache
     :type cache: bool
@@ -852,13 +915,13 @@ class ConfigOptional(OptionsBase):
     delete: bool = False
     list: bool = False
 
-    # pylint: disable=useless-super-delegation
     def __init__(self, **kwargs):
+        """Set the options for the `config` command."""
         super().__init__(**kwargs)
 
 
 class CommandOptions:
-    """Optional Arguments for the different commands"""
+    """Optional Arguments for the different commands."""
 
     optional_classes = {
         "init": InitOptional,
@@ -875,12 +938,19 @@ class CommandOptions:
         "key_export": KeyExportOptional,
         "key_import": KeyImportOptional,
         "upgrade": UpgradeOptional,
+        "recreate": RecreateOptional,
+        "import_tar": ImportTarOptional,
         "export_tar": ExportTarOptional,
         "serve": ServeOptional,
         "config": ConfigOptional,
     }
 
     def __init__(self, defaults: dict = None):
+        """Set the defaults used for all commands.
+
+        :param defaults: Specific flags to use for all commands, defaults to None
+        :type defaults: dict, optional
+        """
         self.defaults = defaults or {}
 
     @classmethod
@@ -893,7 +963,7 @@ class CommandOptions:
             ) from e
 
     def get(self, command: str, values: dict) -> OptionsBase:
-        """Return OptionsBase with flags set for `command`
+        """Return OptionsBase with flags set for `command`.
 
         :param command: command being called
         :type command: str
@@ -902,12 +972,11 @@ class CommandOptions:
         :return: instance of command dataclass
         :rtype: OptionsBase
         """
-
         optionals = {**self.defaults.get(command, {}), **(values or {})}
         return self._get_optional(command)(**optionals)
 
     def to_list(self, command: str, values: dict) -> list:
-        """Parsed args list for command
+        """Parse args list for command.
 
         :param command: command name
         :type command: str
