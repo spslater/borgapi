@@ -2,16 +2,16 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-where = ["borgapi/"]
+[tool.setuptools]
+packages = ["borgapi"]
 
 [project]
 name = "borgapi"
-version = "0.7.0"
+version = "0.7.1"
 authors = [{name = "Sean Slater", email = "seanslater@whatno.io"}]
 description = "Wrapper for borgbackup to easily use in code"
 readme = "README.md"
-license = {file = "LICENSE"}
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
 dependencies = [
     "borgbackup[llfuse]~=1.4.0",
@@ -27,7 +27,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
-    "License :: OSI Approved :: MIT License",
     "Topic :: Utilities",
     "Topic :: System :: Archiving :: Backup",
 ]
