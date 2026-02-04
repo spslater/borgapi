@@ -6,8 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-02-04
+### Changed
+- `pyproject.toml` now explicitly lists the package in the `[tool.setuptools]` section
+  instead of using the find / where sytax
+
 ## [0.7.0] - 2025-01-20
-## Added
+### Added
 - Borg command `recreate` and `import-tar` [#24]
 - Async class! Now you can view output logs while the command is running and not only 
   when it has completed. This makes the `--progress` flag not useless. [#21]
